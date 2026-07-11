@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.cmpas.voice.AppContainer
+import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.pressClickable
 import ru.cmpas.voice.data.Background
 import ru.cmpas.voice.data.HistoryEntry
@@ -85,11 +86,18 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
             Text("Недавнее", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
             Spacer(Modifier.height(12.dp))
             if (history.isEmpty()) {
-                Text(
-                    "Здесь появятся практики, которые ты слушал.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextTertiary,
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    LogoMark(size = 72.dp, tint = TextTertiary.copy(alpha = 0.16f))
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Здесь появятся практики, которые ты слушал.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextTertiary,
+                    )
+                }
             } else {
                 history.take(8).forEach { entry ->
                     RecentRow(entry, nowMs)

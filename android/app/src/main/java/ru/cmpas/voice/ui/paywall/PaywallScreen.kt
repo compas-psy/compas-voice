@@ -28,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.ui.components.Blob
 import ru.cmpas.voice.ui.components.BreathingBackground
+import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.PrimaryButton
 import ru.cmpas.voice.ui.components.TextLink
 import ru.cmpas.voice.ui.theme.BgNight
@@ -61,6 +62,8 @@ fun PaywallScreen(onTrial: () -> Unit, onDismiss: () -> Unit) {
                 .padding(top = 24.dp, bottom = 20.dp),
         ) {
             Spacer(Modifier.weight(1f))
+            LogoMark(size = 44.dp, tint = TextPrimary.copy(alpha = 0.92f))
+            Spacer(Modifier.height(22.dp))
             Text("Первая практика — за нами.", style = MaterialTheme.typography.headlineLarge, color = TextPrimary)
             Spacer(Modifier.height(12.dp))
             Text(
