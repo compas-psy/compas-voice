@@ -1,0 +1,30 @@
+package ru.cmpas.voice
+
+import android.app.Application
+import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import ru.cmpas.voice.audio.PlayerController
+import ru.cmpas.voice.data.LocalStore
+
+/** Простой контейнер зависимостей (service locator) — без Hilt для лёгкости. */
+class AppContainer(context: Context) {
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    val store = LocalStore(context)
+    val player = PlayerController(appScope)
+}
+
+class KompasApp : Application() {
+    lateinit var container: AppContainer
+        private set
+
+    override fun onCreate() {
+        super.onCreate()
+        container = AppContainer(this)
+    }
+}
+
+/** Доступ к контейнеру из любого Context. */
+val Context.appContainer: AppContainer
+    get() = (applicationContext as KompasApp).container

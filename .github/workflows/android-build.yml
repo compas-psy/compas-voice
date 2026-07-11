@@ -1,0 +1,96 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-build.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Install SDK packages
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Gradle 8.9
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-8.9/bin/gradle --version
+
+      - name: Build Debug APK
+        working-directory: android
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee ../android-build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-log
+          path: android-build.log
+          retention-days: 14
+
+      - name: Prepare APK
+        id: apk
+        run: |
+          APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
+          VERSION=$(grep 'versionName' android/app/build.gradle.kts | head -1 | grep -oP '"[^"]*"' | tr -d '"')
+          SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          FILENAME="kompas-voice-${VERSION}-${SHA}.apk"
+          cp "$APK_PATH" "$FILENAME"
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kompas-voice-apk
+          path: kompas-voice-*.apk
+          retention-days: 90
+
+      - name: Create Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.apk.outputs.version }}-b${{ github.run_number }}
+          name: "КОМПАС · голосовые практики ${{ steps.apk.outputs.version }} (#${{ github.run_number }})"
+          body: |
+            ## КОМПАС — голосовые практики (Android)
+            Debug-сборка. Скачайте APK ниже и установите на телефон.
+          files: kompas-voice-*.apk
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Значения дублируют ui/theme/Color.kt для splash/адаптивной иконки -->
+    <color name="bg_graphite">#FF14171F</color>
+    <color name="bg_night">#FF0E1014</color>
+    <color name="logo_green">#FF2F6152</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

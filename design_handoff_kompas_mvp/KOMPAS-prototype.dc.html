@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a0b0e;font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:#C98A6B}
+  a:hover{color:#dba184}
+  /* gallery chrome */
+  .gwrap{padding:56px 60px 80px}
+  .ghead{display:flex;align-items:baseline;gap:14px;margin:0 0 8px}
+  .gtitle{font:700 22px/1.2 Inter,sans-serif;color:#F1EEE8;margin:0}
+  .gsub{font:400 14px/1.5 Inter,sans-serif;color:#7c828e;max-width:640px;margin:2px 0 40px}
+  .grow{display:flex;gap:44px;align-items:flex-start}
+  .gcol{display:flex;flex-direction:column;gap:16px;flex:none}
+  .glabel{display:flex;align-items:center;gap:9px}
+  .gid{font:600 11px ui-monospace,Menlo,monospace;padding:4px 8px;background:rgba(201,138,107,.16);color:#C98A6B;border-radius:6px;text-decoration:none}
+  .gname{font:500 13px/1.3 Inter,sans-serif;color:#c7cbd2}
+  .gopt:target .gid{background:#C98A6B;color:#12151C}
+  .gsec{font:600 15px Inter,sans-serif;color:#c7cbd2;margin:56px 0 20px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+  .gsec span{color:#6b7280;font-weight:400;margin-left:8px}
+  /* breathing */
+  @keyframes breathe{0%{transform:scale(.78);opacity:.45}40%{transform:scale(1.14);opacity:.85}100%{transform:scale(.78);opacity:.45}}
+  @keyframes breatheB{0%{transform:scale(1.1);opacity:.7}40%{transform:scale(.8);opacity:.4}100%{transform:scale(1.1);opacity:.7}}
+  @keyframes drift{0%{transform:translate(0,0)}50%{transform:translate(18px,-22px)}100%{transform:translate(0,0)}}
+  @keyframes driftB{0%{transform:translate(0,0)}50%{transform:translate(-24px,16px)}100%{transform:translate(0,0)}}
+  @keyframes ring{0%{transform:scale(.9);opacity:.5}40%{transform:scale(1.06);opacity:.9}100%{transform:scale(.9);opacity:.5}}
+</style>
+</helmet>
+
+<div class="gwrap">
+  <div class="ghead">
+    <h1 class="gtitle">КОМПАС — навигатор состояний</h1>
+  </div>
+  <p class="gsub">MVP-объём: маленький каталог озвученных практик по состояниям + главная, которая по часам телефона подсказывает релевантное (просто системное время, без бэкенда) + шит выбора длительности + плеер. Убрал из MVP то, что тянет отдельный бэкенд или аудиоинженерию: назначение практик специалистом («для вас»), пространственный звук, множество звуковых сред. Осталось дёшево-и-ценно: чек-ин 0–10 «было→стало» (локально), таймер сна, сонное угасание. Тёмная тема приоритетная, фоны дышат в цикле 10 сек.</p>
+
+  <div class="gsec">Ключевые экраны<span>плеер · главная · шит · каталог</span></div>
+  <div class="grow">
+
+    <!-- ============ 1a  ПЛЕЕР ============ -->
+    <div class="gcol gopt" id="1a">
+      <div class="glabel"><a class="gid" href="#1a">1a</a><span class="gname">Плеер · играет</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <!-- breathing bg -->
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:560px;height:560px;left:-120px;top:120px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.42),rgba(201,138,107,0) 66%);filter:blur(6px);animation:breathe 10s ease-in-out infinite,drift 26s ease-in-out infinite"></div>
+          <div style="position:absolute;width:520px;height:520px;right:-140px;bottom:60px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.4),rgba(93,111,132,0) 66%);filter:blur(6px);animation:breatheB 10s ease-in-out infinite,driftB 30s ease-in-out infinite"></div>
+          <div style="position:absolute;width:440px;height:440px;left:60px;top:340px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.34),rgba(47,97,82,0) 68%);filter:blur(8px);animation:breathe 10s ease-in-out infinite 2.4s,drift 34s ease-in-out infinite"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,16,20,.72) 0%,rgba(14,16,20,.18) 34%,rgba(14,16,20,.28) 66%,rgba(14,16,20,.85) 100%)"></div>
+        </div>
+        <!-- status bar -->
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter,sans-serif">
+          <span>23:41</span>
+          <span style="display:flex;align-items:center;gap:6px;opacity:.9">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#F1EEE8" opacity=".4"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/><rect x="21" y="4" width="1.6" height="4" rx=".8" fill="#F1EEE8" opacity=".5"/></svg>
+          </span>
+        </div>
+        <!-- top meta -->
+        <div style="position:relative;padding:22px 30px 0;display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span style="font:600 12px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(201,138,107,.9)">Выход из дня</span>
+          </div>
+          <button style="width:40px;height:40px;border-radius:20px;border:none;background:rgba(255,255,255,.08);color:#F1EEE8;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px)">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4L14 14M14 4L4 14" stroke="#F1EEE8" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <!-- title -->
+        <div style="position:relative;padding:14px 30px 0">
+          <h2 style="font:600 30px/1.22 Inter;margin:0;text-wrap:balance;max-width:300px">Ночь без внутренних совещаний</h2>
+        </div>
+        <!-- center play zone -->
+        <div style="position:absolute;left:0;right:0;top:342px;display:flex;flex-direction:column;align-items:center;gap:34px">
+          <div style="position:relative;width:168px;height:168px;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.14);animation:ring 10s ease-in-out infinite"></div>
+            <div style="position:absolute;inset:22px;border-radius:50%;border:1px solid rgba(255,255,255,.22);animation:ring 10s ease-in-out infinite .3s"></div>
+            <div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.1);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:9px">
+              <span style="width:6px;height:30px;border-radius:3px;background:#F1EEE8"></span>
+              <span style="width:6px;height:30px;border-radius:3px;background:#F1EEE8"></span>
+            </div>
+          </div>
+          <span style="font:400 14px Inter;color:rgba(241,238,232,.55)">Нажми в любом месте, чтобы поставить на паузу</span>
+        </div>
+        <!-- bottom controls -->
+        <div style="position:absolute;left:0;right:0;bottom:52px;padding:0 34px;display:flex;flex-direction:column;gap:26px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8">
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M13 5a8 8 0 1 1-7 4" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/><path d="M6 4v5h5" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="font:500 12px Inter;color:rgba(241,238,232,.7)">−15 сек</span>
+            </button>
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8">
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="#F1EEE8" stroke-width="1.7"/><path d="M13 8.5V13l3 2" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span style="font:500 12px Inter;color:rgba(241,238,232,.7)">Таймер сна</span>
+            </button>
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8">
+              <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M6 10v6h3l5 4V6l-5 4H6z" stroke="#F1EEE8" stroke-width="1.7" stroke-linejoin="round"/><path d="M18 9a5 5 0 0 1 0 8" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <span style="font:500 12px Inter;color:rgba(241,238,232,.7)">Фон</span>
+            </button>
+          </div>
+          <!-- progress -->
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="height:2px;border-radius:2px;background:rgba(255,255,255,.14);position:relative">
+              <div style="position:absolute;left:0;top:0;height:2px;width:38%;border-radius:2px;background:rgba(241,238,232,.75)"></div>
+              <div style="position:absolute;left:38%;top:-2px;width:6px;height:6px;border-radius:3px;background:#F1EEE8;transform:translateX(-3px)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font:400 12px Inter;color:rgba(241,238,232,.5)">
+              <span>4:31</span><span>−7:29</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- ============ 1b  ГЛАВНАЯ ============ -->
+    <div class="gcol gopt" id="1b">
+      <div class="glabel"><a class="gid" href="#1b">1b</a><span class="gname">Главная «Сейчас» · вечер</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;top:-60px;right:-80px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.18),transparent 68%);filter:blur(4px)"></div>
+        <!-- status bar -->
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter">
+          <span>21:08</span>
+          <span style="display:flex;align-items:center;gap:6px;opacity:.9">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#F1EEE8" opacity=".4"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/><rect x="21" y="4" width="1.6" height="4" rx=".8" fill="#F1EEE8" opacity=".5"/></svg>
+          </span>
+        </div>
+        <div style="position:relative;padding:8px 26px 0;height:706px;overflow:hidden">
+          <!-- header -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+            <div>
+              <span style="font:500 13px Inter;color:#8b909b">Четверг · вечер</span>
+              <h1 style="font:700 33px/1.1 Inter;margin:6px 0 8px">Что сейчас?</h1>
+              <span style="font:400 15px/1.4 Inter;color:#9aa0ab">Выбери, из чего хочется выйти.</span>
+            </div>
+            <img src="uploads/icon.png" alt="КОМПАС" style="width:38px;height:38px;border-radius:50%;margin-top:4px"/>
+          </div>
+          <!-- state tiles -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="position:relative;overflow:hidden;height:132px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.4),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">не могу выключить</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Работа не отпускает</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:132px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.42),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">голова по кругу</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Прокручиваю мысли</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:132px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.44),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">не идёт сон</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Не могу уснуть</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:132px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.36),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">слишком много всего</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Перегружен(а)</span>
+            </div>
+          </div>
+          <!-- wide tile -->
+          <div style="position:relative;overflow:hidden;height:96px;border-radius:22px;background:#1c202a;padding:16px 18px;display:flex;flex-direction:column;justify-content:center;gap:6px;margin-top:12px;border:1px solid rgba(255,255,255,.05)">
+            <div style="position:absolute;right:-20px;top:-40px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.28),transparent 66%)"></div>
+            <span style="position:relative;font:400 12px Inter;color:#7f8590">завтра предстоит</span>
+            <span style="position:relative;font:600 17px/1.2 Inter">Трудный разговор</span>
+          </div>
+        </div>
+        <!-- tab bar -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(20,23,31,.82);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#C98A6B">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#C98A6B" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="#C98A6B"/></svg>
+            <span style="font:600 11px Inter">Сейчас</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/></svg>
+            <span style="font:500 11px Inter">Практики</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.6" stroke="#6b7280" stroke-width="1.7"/><path d="M5 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#6b7280" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span style="font:500 11px Inter">Я</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- ============ 1c  ШИТ ============ -->
+    <div class="gcol gopt" id="1c">
+      <div class="glabel"><a class="gid" href="#1c">1c</a><span class="gname">Шит перед стартом</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <!-- dimmed catalog behind -->
+        <div style="position:absolute;inset:0;filter:blur(2px);opacity:.4">
+          <div style="height:54px"></div>
+          <div style="padding:0 26px"><h1 style="font:700 30px Inter;color:#F1EEE8;margin:6px 0">Практики</h1>
+            <div style="height:120px;border-radius:22px;background:#1c202a;margin-bottom:14px"></div>
+            <div style="height:120px;border-radius:22px;background:#1c202a"></div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(8,9,12,.55)"></div>
+        <!-- sheet -->
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#1a1e27;border-radius:30px 30px 0 0;border-top:1px solid rgba(255,255,255,.08);padding:14px 26px 40px;box-shadow:0 -30px 60px rgba(0,0,0,.5)">
+          <div style="width:38px;height:5px;border-radius:3px;background:rgba(255,255,255,.22);margin:0 auto 20px"></div>
+          <span style="font:600 12px Inter;letter-spacing:.12em;text-transform:uppercase;color:rgba(201,138,107,.9)">Выход из дня</span>
+          <h2 style="font:600 24px/1.24 Inter;margin:8px 0 24px;max-width:280px;text-wrap:balance">Ночь без внутренних совещаний</h2>
+
+          <!-- segment control -->
+          <span style="font:500 13px Inter;color:#9aa0ab;display:block;margin-bottom:10px">Длительность</span>
+          <div style="display:flex;background:#12151c;border-radius:14px;padding:4px;margin-bottom:22px">
+            <div style="flex:1;text-align:center;padding:10px 0;border-radius:11px;font:500 15px Inter;color:#8b909b">5</div>
+            <div style="flex:1;text-align:center;padding:10px 0;border-radius:11px;font:600 15px Inter;color:#F1EEE8;background:#2a3040;box-shadow:0 1px 3px rgba(0,0,0,.3)">12</div>
+            <div style="flex:1;text-align:center;padding:10px 0;border-radius:11px;font:500 15px Inter;color:#8b909b">20</div>
+          </div>
+
+          <!-- sound env -->
+          <span style="font:500 13px Inter;color:#9aa0ab;display:block;margin-bottom:10px">Фон</span>
+          <div style="display:flex;gap:8px;margin-bottom:24px">
+            <span style="flex:1;text-align:center;font:500 14px Inter;padding:11px 0;border-radius:14px;background:#2a3040;color:#F1EEE8;border:1px solid rgba(255,255,255,.1)">Только голос</span>
+            <span style="flex:1;text-align:center;font:500 14px Inter;padding:11px 0;border-radius:14px;background:#12151c;color:#9aa0ab;border:1px solid rgba(255,255,255,.05)">Мягкий фон</span>
+          </div>
+
+          <!-- check-in slider -->
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px">
+            <span style="font:500 15px Inter">Насколько сейчас напряжённо?</span>
+          </div>
+          <div style="position:relative;height:8px;border-radius:4px;background:#12151c;margin:0 4px 8px">
+            <div style="position:absolute;left:0;top:0;height:8px;width:70%;border-radius:4px;background:linear-gradient(90deg,#5d6f84,#C98A6B)"></div>
+            <div style="position:absolute;left:70%;top:-9px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);transform:translateX(-13px)"></div>
+            <div style="position:absolute;left:70%;top:-40px;transform:translateX(-50%);background:#2a3040;color:#F1EEE8;font:600 13px Inter;padding:3px 9px;border-radius:8px">7</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font:400 12px Inter;color:#6b7280;margin:0 4px 20px"><span>0 · спокойно</span><span>10 · на пределе</span></div>
+
+          <button style="width:100%;padding:17px;border:none;border-radius:18px;background:#C98A6B;color:#12151C;font:600 17px Inter;margin-bottom:14px">Начать</button>
+          <div style="text-align:center"><span style="font:500 15px Inter;color:#8b909b">Пропустить чек-ин</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 1d  КАТАЛОГ ============ -->
+    <div class="gcol gopt" id="1d">
+      <div class="glabel"><a class="gid" href="#1d">1d</a><span class="gname">Каталог «Практики»</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter">
+          <span>21:12</span>
+          <span style="display:flex;align-items:center;gap:6px;opacity:.9">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#F1EEE8" opacity=".4"/></svg>
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/><rect x="21" y="4" width="1.6" height="4" rx=".8" fill="#F1EEE8" opacity=".5"/></svg>
+          </span>
+        </div>
+        <div style="position:relative;padding:6px 26px 0;height:706px;overflow:hidden">
+          <h1 style="font:700 33px/1.1 Inter;margin:6px 0 22px">Практики</h1>
+
+          <!-- group: Сон -->
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px">
+            <span style="font:600 18px Inter">Сон</span><span style="font:400 13px Inter;color:#6b7280">3 практики</span>
+          </div>
+          <div style="position:relative;overflow:hidden;border-radius:22px;padding:18px;margin-bottom:14px;background:linear-gradient(120deg,#1a2233,#161b28)">
+            <div style="position:absolute;right:-30px;top:-20px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.5),transparent 66%);filter:blur(6px);animation:breathe 10s ease-in-out infinite"></div>
+            <div style="position:relative">
+              <h3 style="font:600 19px/1.24 Inter;margin:0 0 6px;max-width:250px">Не могу уснуть</h3>
+              <span style="font:400 13px Inter;color:#9aa0ab;display:block;margin-bottom:14px">Тело устало, а голова ещё нет</span>
+              <div style="display:flex;gap:8px">
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">12 мин</span>
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">20 мин</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- group: Выход из дня -->
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 12px">
+            <span style="font:600 18px Inter">Выход из дня</span><span style="font:400 13px Inter;color:#6b7280">2 практики</span>
+          </div>
+          <div style="position:relative;overflow:hidden;border-radius:22px;padding:18px;margin-bottom:14px;background:linear-gradient(120deg,#2b2530,#1d222c)">
+            <div style="position:absolute;right:-30px;top:-20px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.44),transparent 66%);filter:blur(6px);animation:breathe 10s ease-in-out infinite .8s"></div>
+            <div style="position:relative">
+              <h3 style="font:600 19px/1.24 Inter;margin:0 0 6px;max-width:250px">Ночь без внутренних совещаний</h3>
+              <span style="font:400 13px Inter;color:#9aa0ab;display:block;margin-bottom:14px">Голова продолжает работать дома</span>
+              <div style="display:flex;gap:8px">
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">5 мин</span>
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">12 мин</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- group: Тревога -->
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 12px">
+            <span style="font:600 18px Inter">Тревога и перегрузка</span><span style="font:400 13px Inter;color:#6b7280">3 практики</span>
+          </div>
+          <div style="position:relative;overflow:hidden;border-radius:22px;padding:18px;background:linear-gradient(120deg,#182a26,#141f1d)">
+            <div style="position:absolute;right:-30px;top:-20px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.5),transparent 66%);filter:blur(6px);animation:breathe 10s ease-in-out infinite 1.6s"></div>
+            <div style="position:relative">
+              <h3 style="font:600 19px/1.24 Inter;margin:0 0 6px;max-width:250px">Слишком много всего сразу</h3>
+              <span style="font:400 13px Inter;color:#9aa0ab;display:block;margin-bottom:14px">Когда внутри всё сжимается</span>
+              <div style="display:flex;gap:8px">
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">5 мин</span>
+                <span style="font:500 12px Inter;padding:5px 11px;border-radius:14px;background:rgba(255,255,255,.08);color:#c7cbd2">12 мин</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- tab bar -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(20,23,31,.82);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#6b7280" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="#6b7280"/></svg>
+            <span style="font:500 11px Inter">Сейчас</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#C98A6B">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2.2" stroke="#C98A6B" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="2.2" stroke="#C98A6B" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="2.2" stroke="#C98A6B" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="2.2" stroke="#C98A6B" stroke-width="1.7"/></svg>
+            <span style="font:600 11px Inter">Практики</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.6" stroke="#6b7280" stroke-width="1.7"/><path d="M5 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#6b7280" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <span style="font:500 11px Inter">Я</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= ОНБОРДИНГ ================= -->
+  <div class="gsec">Онбординг<span>3 экрана · честный тон, без обещаний</span></div>
+  <div class="grow">
+
+    <!-- 2a -->
+    <div class="gcol gopt" id="2a">
+      <div class="glabel"><a class="gid" href="#2a">2a</a><span class="gname">Что это</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:480px;height:480px;left:-140px;top:-80px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.34),transparent 66%);filter:blur(6px);animation:breathe 10s ease-in-out infinite,drift 28s ease-in-out infinite"></div>
+          <div style="position:absolute;width:420px;height:420px;right:-120px;bottom:80px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.3),transparent 68%);filter:blur(8px);animation:breatheB 10s ease-in-out infinite,driftB 32s ease-in-out infinite"></div>
+        </div>
+        <div style="position:relative;height:100%;display:flex;flex-direction:column;padding:64px 34px 44px">
+          <img src="uploads/icon.png" alt="КОМПАС" style="width:46px;height:46px;border-radius:50%"/>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px">
+            <h1 style="font:600 31px/1.3 Inter;margin:0;text-wrap:balance">Голос, который помогает перейти из одного состояния в другое.</h1>
+            <p style="font:400 16px/1.55 Inter;color:#9aa0ab;margin:0">Не музыка и не курс. Спокойный проводник — от того, что есть сейчас, к тому, что нужно.</p>
+          </div>
+          <div style="display:flex;gap:7px;margin-bottom:22px">
+            <span style="width:22px;height:6px;border-radius:3px;background:#C98A6B"></span>
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+          </div>
+          <button style="width:100%;padding:16px;border:none;border-radius:18px;background:rgba(255,255,255,.1);color:#F1EEE8;font:600 16px Inter;backdrop-filter:blur(12px)">Далее</button>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 2b -->
+    <div class="gcol gopt" id="2b">
+      <div class="glabel"><a class="gid" href="#2b">2b</a><span class="gname">Честность</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:460px;height:460px;right:-150px;top:-40px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.32),transparent 66%);filter:blur(8px);animation:breathe 10s ease-in-out infinite 1s,drift 30s ease-in-out infinite"></div>
+        </div>
+        <div style="position:relative;height:100%;display:flex;flex-direction:column;padding:64px 34px 44px">
+          <img src="uploads/icon.png" alt="КОМПАС" style="width:46px;height:46px;border-radius:50%"/>
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:18px">
+            <h1 style="font:600 31px/1.3 Inter;margin:0;text-wrap:balance">Без обещаний исцеления и магических частот.</h1>
+            <p style="font:400 16px/1.55 Inter;color:#9aa0ab;margin:0">Работает не потому что «лечит частотами», а потому что помогает переключиться. Голос и точные сценарии — это всё.</p>
+          </div>
+          <div style="display:flex;gap:7px;margin-bottom:22px">
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+            <span style="width:22px;height:6px;border-radius:3px;background:#C98A6B"></span>
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+          </div>
+          <button style="width:100%;padding:16px;border:none;border-radius:18px;background:rgba(255,255,255,.1);color:#F1EEE8;font:600 16px Inter;backdrop-filter:blur(12px)">Далее</button>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 2c -->
+    <div class="gcol gopt" id="2c">
+      <div class="glabel"><a class="gid" href="#2c">2c</a><span class="gname">Выбор стартового состояния</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;top:-70px;left:-60px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.2),transparent 68%);filter:blur(6px)"></div>
+        <div style="position:relative;height:100%;display:flex;flex-direction:column;padding:70px 26px 40px">
+          <h1 style="font:600 30px/1.2 Inter;margin:0 0 8px;padding:0 8px">С чего начнём?</h1>
+          <p style="font:400 15px/1.5 Inter;color:#9aa0ab;margin:0 0 26px;padding:0 8px">Можно поменять в любой момент.</p>
+          <div style="display:flex;flex-direction:column;gap:10px;flex:1">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:18px;background:#1c202a;border:1.5px solid #C98A6B">
+              <span style="font:600 16px Inter">Не могу уснуть</span>
+              <div style="width:22px;height:22px;border-radius:11px;background:#C98A6B;display:flex;align-items:center;justify-content:center"><svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4.5L4.5 8L11 1" stroke="#12151C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:18px;background:#1c202a;border:1.5px solid rgba(255,255,255,.06)">
+              <span style="font:600 16px Inter">Не могу выключить работу</span>
+              <div style="width:22px;height:22px;border-radius:11px;border:1.5px solid rgba(255,255,255,.2)"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:18px;background:#1c202a;border:1.5px solid rgba(255,255,255,.06)">
+              <span style="font:600 16px Inter">Тревожно, всё сжимается</span>
+              <div style="width:22px;height:22px;border-radius:11px;border:1.5px solid rgba(255,255,255,.2)"></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:18px;border-radius:18px;background:#1c202a;border:1.5px solid rgba(255,255,255,.06)">
+              <span style="font:600 16px Inter">Потерял опору</span>
+              <div style="width:22px;height:22px;border-radius:11px;border:1.5px solid rgba(255,255,255,.2)"></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:7px;margin:0 0 22px;padding:0 8px">
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+            <span style="width:6px;height:6px;border-radius:3px;background:rgba(255,255,255,.18)"></span>
+            <span style="width:22px;height:6px;border-radius:3px;background:#C98A6B"></span>
+          </div>
+          <button style="width:100%;padding:17px;border:none;border-radius:18px;background:#C98A6B;color:#12151C;font:600 17px Inter">Начать</button>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= ГЛАВНАЯ ПО ВРЕМЕНИ СУТОК ================= -->
+  <div class="gsec">Главная «Сейчас» по времени суток<span>день · ночь (вечер — 1b выше)</span></div>
+  <div class="grow">
+
+    <!-- 3a день -->
+    <div class="gcol gopt" id="3a">
+      <div class="glabel"><a class="gid" href="#3a">3a</a><span class="gname">Главная · день</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;top:-60px;right:-80px;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.16),transparent 68%);filter:blur(4px)"></div>
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter">
+          <span>14:26</span>
+          <span style="display:flex;align-items:center;gap:6px;opacity:.9"><svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#F1EEE8" opacity=".4"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/><rect x="21" y="4" width="1.6" height="4" rx=".8" fill="#F1EEE8" opacity=".5"/></svg></span>
+        </div>
+        <div style="position:relative;padding:8px 26px 0;height:706px;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+            <div>
+              <span style="font:500 13px Inter;color:#8b909b">Вторник · день</span>
+              <h1 style="font:700 33px/1.1 Inter;margin:6px 0 8px">Что сейчас?</h1>
+              <span style="font:400 15px/1.4 Inter;color:#9aa0ab">Выбери, из чего хочется выйти.</span>
+            </div>
+            <img src="uploads/icon.png" alt="КОМПАС" style="width:38px;height:38px;border-radius:50%;margin-top:4px"/>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="position:relative;overflow:hidden;height:138px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.36),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">слишком много всего</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Перегружен(а)</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:138px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.4),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">задачи наваливаются</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Не знаю, за что взяться</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:138px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(180,116,79,.42),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">скоро встреча</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Трудный разговор</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:138px;border-radius:22px;background:#1c202a;padding:16px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;bottom:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.42),transparent 66%)"></div>
+              <span style="position:relative;font:400 12px Inter;color:#7f8590">почва уходит</span>
+              <span style="position:relative;font:600 17px/1.2 Inter">Потерял опору</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(20,23,31,.82);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#C98A6B"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#C98A6B" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="#C98A6B"/></svg><span style="font:600 11px Inter">Сейчас</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/></svg><span style="font:500 11px Inter">Практики</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.6" stroke="#6b7280" stroke-width="1.7"/><path d="M5 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#6b7280" stroke-width="1.7" stroke-linecap="round"/></svg><span style="font:500 11px Inter">Я</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 3b ночь -->
+    <div class="gcol gopt" id="3b">
+      <div class="glabel"><a class="gid" href="#3b">3b</a><span class="gname">Главная · ночь</span></div>
+      <div style="width:390px;height:844px;background:#0A0C10;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#D9D6CF">
+        <div style="position:absolute;bottom:-80px;left:-60px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.24),transparent 68%);filter:blur(10px);animation:breathe 10s ease-in-out infinite"></div>
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter;color:#9aa0ab">
+          <span>03:12</span>
+          <span style="display:flex;align-items:center;gap:6px;opacity:.6"><svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#D9D6CF"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#D9D6CF"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#D9D6CF"/><rect x="13.5" y="0" width="3" height="11" rx="1" fill="#D9D6CF" opacity=".4"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#D9D6CF" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#D9D6CF"/></svg></span>
+        </div>
+        <div style="position:relative;padding:20px 26px 0;height:706px;display:flex;flex-direction:column">
+          <span style="font:500 13px Inter;color:#6b7280">Ночь</span>
+          <h1 style="font:700 34px/1.1 Inter;margin:8px 0 10px;color:#E6E3DC">Не спится?</h1>
+          <span style="font:400 16px/1.45 Inter;color:#8b909b;margin-bottom:30px">Ничего не нужно решать. Просто выбери.</span>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="position:relative;overflow:hidden;height:104px;border-radius:22px;background:#12151d;padding:20px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.4),transparent 66%)"></div>
+              <span style="position:relative;font:600 20px Inter;color:#E6E3DC">Не могу уснуть</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:104px;border-radius:22px;background:#12151d;padding:20px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.34),transparent 66%)"></div>
+              <span style="position:relative;font:600 20px Inter;color:#E6E3DC">Проснулся среди ночи</span>
+            </div>
+            <div style="position:relative;overflow:hidden;height:104px;border-radius:22px;background:#12151d;padding:20px;display:flex;align-items:center;border:1px solid rgba(255,255,255,.05)">
+              <div style="position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.32),transparent 66%)"></div>
+              <span style="position:relative;font:600 20px Inter;color:#E6E3DC">Тревожно в темноте</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(10,12,16,.9);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#8b7a6a"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#8b7a6a" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="#8b7a6a"/></svg><span style="font:600 11px Inter">Сейчас</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#4b5058"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2.2" stroke="#4b5058" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="2.2" stroke="#4b5058" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="2.2" stroke="#4b5058" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="2.2" stroke="#4b5058" stroke-width="1.7"/></svg><span style="font:500 11px Inter">Практики</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#4b5058"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.6" stroke="#4b5058" stroke-width="1.7"/><path d="M5 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#4b5058" stroke-width="1.7" stroke-linecap="round"/></svg><span style="font:500 11px Inter">Я</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.22)"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= ПЛЕЕР · СОСТОЯНИЯ ================= -->
+  <div class="gsec">Плеер · состояния<span>пауза · ночной режим · сонное угасание (играет — 1a выше)</span></div>
+  <div class="grow">
+
+    <!-- 4a пауза -->
+    <div class="gcol gopt" id="4a">
+      <div class="glabel"><a class="gid" href="#4a">4a</a><span class="gname">Плеер · пауза</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:560px;height:560px;left:-120px;top:120px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.3),transparent 66%);filter:blur(6px);transform:scale(.92);opacity:.5"></div>
+          <div style="position:absolute;width:520px;height:520px;right:-140px;bottom:60px;border-radius:50%;background:radial-gradient(circle,rgba(93,111,132,.28),transparent 66%);filter:blur(6px);transform:scale(.92);opacity:.5"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,16,20,.78) 0%,rgba(14,16,20,.3) 40%,rgba(14,16,20,.88) 100%)"></div>
+        </div>
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter"><span>23:44</span><span style="display:flex;align-items:center;gap:6px;opacity:.9"><svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/></svg></span></div>
+        <div style="position:relative;padding:22px 30px 0;display:flex;justify-content:space-between;align-items:flex-start">
+          <span style="font:600 12px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(201,138,107,.9)">Выход из дня</span>
+          <button style="width:40px;height:40px;border-radius:20px;border:none;background:rgba(255,255,255,.08);color:#F1EEE8;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4L14 14M14 4L4 14" stroke="#F1EEE8" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+        </div>
+        <div style="position:relative;padding:14px 30px 0"><h2 style="font:600 30px/1.22 Inter;margin:0;max-width:300px">Ночь без внутренних совещаний</h2></div>
+        <div style="position:absolute;left:0;right:0;top:342px;display:flex;flex-direction:column;align-items:center;gap:34px">
+          <div style="position:relative;width:168px;height:168px;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.1)"></div>
+            <div style="width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.12);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.24);display:flex;align-items:center;justify-content:center;padding-left:6px"><svg width="34" height="38" viewBox="0 0 34 38" fill="none"><path d="M3 3.5L30 19L3 34.5V3.5Z" fill="#F1EEE8"/></svg></div>
+          </div>
+          <span style="font:500 15px Inter;color:rgba(241,238,232,.72)">На паузе · нажми, чтобы продолжить</span>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:52px;padding:0 34px;display:flex;flex-direction:column;gap:26px">
+          <div style="display:flex;align-items:center;justify-content:space-between;opacity:.85">
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M13 5a8 8 0 1 1-7 4" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/><path d="M6 4v5h5" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font:500 12px Inter;color:rgba(241,238,232,.7)">−15 сек</span></button>
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="#F1EEE8" stroke-width="1.7"/><path d="M13 8.5V13l3 2" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/></svg><span style="font:500 12px Inter;color:rgba(241,238,232,.7)">Таймер сна</span></button>
+            <button style="display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:none;color:#F1EEE8"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M6 10v6h3l5 4V6l-5 4H6z" stroke="#F1EEE8" stroke-width="1.7" stroke-linejoin="round"/><path d="M18 9a5 5 0 0 1 0 8" stroke="#F1EEE8" stroke-width="1.7" stroke-linecap="round"/></svg><span style="font:500 12px Inter;color:rgba(241,238,232,.7)">Фон</span></button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="height:2px;border-radius:2px;background:rgba(255,255,255,.14);position:relative"><div style="position:absolute;left:0;top:0;height:2px;width:38%;border-radius:2px;background:rgba(241,238,232,.75)"></div><div style="position:absolute;left:38%;top:-2px;width:6px;height:6px;border-radius:3px;background:#F1EEE8;transform:translateX(-3px)"></div></div>
+            <div style="display:flex;justify-content:space-between;font:400 12px Inter;color:rgba(241,238,232,.5)"><span>4:31</span><span>−7:29</span></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 4b ночной режим -->
+    <div class="gcol gopt" id="4b">
+      <div class="glabel"><a class="gid" href="#4b">4b</a><span class="gname">Плеер · ночной режим</span></div>
+      <div style="width:390px;height:844px;background:#07080B;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#B9B6AF">
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:520px;height:520px;left:-100px;top:180px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.2),transparent 68%);filter:blur(10px);animation:breathe 10s ease-in-out infinite"></div>
+        </div>
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:flex-end;padding:0 32px;font:600 15px Inter;color:#5b6068;opacity:.7"><span style="display:flex;gap:6px"><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#5b6068" stroke-opacity=".6"/><rect x="3" y="3" width="9" height="6" rx="1.5" fill="#5b6068"/></svg></span></div>
+        <div style="position:absolute;left:0;right:0;top:150px;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.7">
+          <span style="font:600 11px Inter;letter-spacing:.16em;text-transform:uppercase;color:#5b6068">Сон</span>
+          <h2 style="font:500 20px/1.3 Inter;margin:0;color:#8a8880;text-align:center;max-width:260px">Медленное погружение</h2>
+        </div>
+        <div style="position:absolute;left:0;right:0;top:372px;display:flex;flex-direction:column;align-items:center;gap:30px">
+          <div style="width:120px;height:120px;border-radius:50%;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;gap:8px"><span style="width:5px;height:26px;border-radius:3px;background:rgba(185,182,175,.7)"></span><span style="width:5px;height:26px;border-radius:3px;background:rgba(185,182,175,.7)"></span></div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:70px;padding:0 40px;display:flex;flex-direction:column;gap:20px;opacity:.55">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <svg width="24" height="24" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="9" stroke="#8a8880" stroke-width="1.6"/><path d="M13 8.5V13l3 2" stroke="#8a8880" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span style="font:400 13px Inter;color:#6b6f76">Таймер сна · 20 мин</span>
+            <svg width="24" height="24" viewBox="0 0 26 26" fill="none"><path d="M6 10v6h3l5 4V6l-5 4H6z" stroke="#8a8880" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="height:2px;border-radius:2px;background:rgba(255,255,255,.08);position:relative"><div style="position:absolute;left:0;top:0;height:2px;width:22%;border-radius:2px;background:rgba(185,182,175,.4)"></div></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.14)"></div>
+      </div>
+    </div>
+
+    <!-- 4c сонное угасание -->
+    <div class="gcol gopt" id="4c">
+      <div class="glabel"><a class="gid" href="#4c">4c</a><span class="gname">Плеер · сонное угасание (без финала)</span></div>
+      <div style="width:390px;height:844px;background:#050609;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#6b6f76">
+        <div style="position:absolute;width:480px;height:480px;left:-80px;top:220px;border-radius:50%;background:radial-gradient(circle,rgba(76,86,120,.1),transparent 70%);filter:blur(14px);opacity:.5"></div>
+        <div style="position:absolute;left:0;right:0;top:160px;display:flex;flex-direction:column;align-items:center;gap:8px;opacity:.16">
+          <h2 style="font:500 19px/1.3 Inter;margin:0;color:#8a8880;text-align:center;max-width:260px">Медленное погружение</h2>
+        </div>
+        <div style="position:absolute;left:0;right:0;top:380px;display:flex;justify-content:center;opacity:.07">
+          <div style="width:110px;height:110px;border-radius:50%;border:1px solid rgba(255,255,255,.4)"></div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:90px;padding:0 44px;opacity:.05">
+          <div style="height:2px;border-radius:2px;background:rgba(255,255,255,.3);position:relative"><div style="position:absolute;left:0;top:0;height:2px;width:88%;border-radius:2px;background:rgba(255,255,255,.4)"></div></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.06)"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= ИТОГ · ПРОФИЛЬ · ПЕЙВОЛЛ ================= -->
+  <div class="gsec">Итог, профиль, подписка<span>после практики · «Я» · мягкий пейволл</span></div>
+  <div class="grow">
+
+    <!-- 5a после практики -->
+    <div class="gcol gopt" id="5a">
+      <div class="glabel"><a class="gid" href="#5a">5a</a><span class="gname">После практики (не сонной)</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;top:-40px;left:50%;transform:translateX(-50%);width:340px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.18),transparent 68%);filter:blur(8px)"></div>
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter"><span>23:56</span><span style="display:flex;align-items:center;gap:6px;opacity:.9"><svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/></svg></span></div>
+        <div style="position:relative;height:790px;display:flex;flex-direction:column;padding:40px 30px 40px">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:34px">
+            <div>
+              <h1 style="font:600 28px/1.24 Inter;margin:0 0 8px">Как сейчас?</h1>
+              <span style="font:400 15px/1.45 Inter;color:#9aa0ab">Без правильных ответов. Просто отметь.</span>
+            </div>
+            <div>
+              <div style="position:relative;height:8px;border-radius:4px;background:#12151c;margin:0 4px 8px">
+                <div style="position:absolute;left:0;top:0;height:8px;width:40%;border-radius:4px;background:linear-gradient(90deg,#5d6f84,#C98A6B)"></div>
+                <div style="position:absolute;left:40%;top:-9px;width:26px;height:26px;border-radius:13px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);transform:translateX(-13px)"></div>
+                <div style="position:absolute;left:40%;top:-40px;transform:translateX(-50%);background:#2a3040;color:#F1EEE8;font:600 13px Inter;padding:3px 9px;border-radius:8px">4</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font:400 12px Inter;color:#6b7280;margin:0 4px"><span>0 · спокойно</span><span>10 · на пределе</span></div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:14px;padding:22px;border-radius:20px;background:#1a1e27;border:1px solid rgba(255,255,255,.05)">
+              <span style="font:600 26px Inter;color:#8b909b">7</span>
+              <svg width="30" height="16" viewBox="0 0 30 16" fill="none"><path d="M2 8h24M20 2l6 6-6 6" stroke="#C98A6B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="font:600 26px Inter;color:#C98A6B">4</span>
+              <span style="font:400 14px Inter;color:#9aa0ab;margin-left:6px">чуть отпустило</span>
+            </div>
+          </div>
+          <button style="width:100%;padding:17px;border:none;border-radius:18px;background:#C98A6B;color:#12151C;font:600 17px Inter">Готово</button>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 6a профиль -->
+    <div class="gcol gopt" id="6a">
+      <div class="glabel"><a class="gid" href="#6a">6a</a><span class="gname">Профиль «Я»</span></div>
+      <div style="width:390px;height:844px;background:#14171F;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:relative;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 34px;font:600 15px Inter"><span>21:30</span><span style="display:flex;align-items:center;gap:6px;opacity:.9"><svg width="17" height="11" viewBox="0 0 17 11" fill="none"><rect x="0" y="7" width="3" height="4" rx="1" fill="#F1EEE8"/><rect x="4.5" y="5" width="3" height="6" rx="1" fill="#F1EEE8"/><rect x="9" y="2.5" width="3" height="8.5" rx="1" fill="#F1EEE8"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="#F1EEE8" stroke-opacity=".5"/><rect x="3" y="3" width="13" height="6" rx="1.5" fill="#F1EEE8"/></svg></span></div>
+        <div style="position:relative;padding:6px 26px 0;height:706px;overflow:hidden">
+          <h1 style="font:700 33px/1.1 Inter;margin:6px 0 22px">Я</h1>
+          <!-- gentle trend -->
+          <div style="position:relative;overflow:hidden;border-radius:22px;padding:20px;margin-bottom:26px;background:#1a1e27;border:1px solid rgba(255,255,255,.05)">
+            <span style="font:400 14px/1.5 Inter;color:#c7cbd2">За последние две недели напряжение перед практикой в среднем чуть ниже.</span>
+            <svg width="100%" height="42" viewBox="0 0 300 42" preserveAspectRatio="none" style="margin-top:16px;display:block"><path d="M0 14 L50 10 L100 20 L150 16 L200 26 L250 24 L300 32" fill="none" stroke="#C98A6B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <!-- history -->
+          <span style="font:600 13px Inter;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;display:block;margin-bottom:14px">Недавнее</span>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:26px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="display:flex;flex-direction:column;gap:3px"><span style="font:500 15px Inter">Ночь без внутренних совещаний</span><span style="font:400 13px Inter;color:#7f8590">вчера · 12 мин</span></div><span style="font:400 13px Inter;color:#8b7a6a">7 → 4</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="display:flex;flex-direction:column;gap:3px"><span style="font:500 15px Inter">Не могу уснуть</span><span style="font:400 13px Inter;color:#7f8590">3 дня назад · 20 мин</span></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)"><div style="display:flex;flex-direction:column;gap:3px"><span style="font:500 15px Inter">Слишком много всего сразу</span><span style="font:400 13px Inter;color:#7f8590">неделю назад · 5 мин</span></div><span style="font:400 13px Inter;color:#8b7a6a">8 → 5</span></div>
+          </div>
+          <!-- settings -->
+          <span style="font:600 13px Inter;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;display:block;margin-bottom:14px">Настройки</span>
+          <div style="border-radius:18px;background:#1a1e27;border:1px solid rgba(255,255,255,.05);overflow:hidden">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font:500 15px Inter">Фон по умолчанию</span><span style="font:400 14px Inter;color:#8b909b">Только голос ›</span></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid rgba(255,255,255,.05)"><div style="display:flex;flex-direction:column;gap:3px"><span style="font:500 15px Inter">Напоминания</span><span style="font:400 12px Inter;color:#7f8590">Могу напомнить вечером. Если будет удобно.</span></div><div style="width:50px;height:30px;border-radius:15px;background:#2a3040;position:relative;flex:none"><div style="position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:12px;background:#8b909b"></div></div></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:15px 18px"><span style="font:500 15px Inter">Подписка</span><span style="font:400 14px Inter;color:#8b909b">Бесплатный доступ ›</span></div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:84px;background:rgba(20,23,31,.82);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:flex-start;justify-content:space-around;padding-top:12px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="#6b7280" stroke-width="1.7"/><circle cx="12" cy="12" r="2.6" fill="#6b7280"/></svg><span style="font:500 11px Inter">Сейчас</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#6b7280"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="4" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="4" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/><rect x="13" y="13" width="7" height="7" rx="2.2" stroke="#6b7280" stroke-width="1.7"/></svg><span style="font:500 11px Inter">Практики</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:#C98A6B"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.5" r="3.6" stroke="#C98A6B" stroke-width="1.7"/><path d="M5 19.5c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#C98A6B" stroke-width="1.7" stroke-linecap="round"/></svg><span style="font:600 11px Inter">Я</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+    <!-- 6b пейволл -->
+    <div class="gcol gopt" id="6b">
+      <div class="glabel"><a class="gid" href="#6b">6b</a><span class="gname">Пейволл · после первой практики</span></div>
+      <div style="width:390px;height:844px;background:#0E1014;border-radius:46px;position:relative;overflow:hidden;box-shadow:0 40px 90px -24px rgba(0,0,0,.7),0 0 0 11px #05070A,0 0 0 12px rgba(255,255,255,.05);color:#F1EEE8">
+        <div style="position:absolute;inset:0;overflow:hidden">
+          <div style="position:absolute;width:440px;height:440px;left:-120px;top:-60px;border-radius:50%;background:radial-gradient(circle,rgba(201,138,107,.28),transparent 66%);filter:blur(8px);animation:breathe 10s ease-in-out infinite"></div>
+          <div style="position:absolute;width:400px;height:400px;right:-130px;bottom:120px;border-radius:50%;background:radial-gradient(circle,rgba(47,97,82,.24),transparent 68%);filter:blur(10px);animation:breatheB 10s ease-in-out infinite"></div>
+        </div>
+        <div style="position:relative;height:100%;display:flex;flex-direction:column;padding:70px 30px 40px">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px">
+            <div>
+              <h1 style="font:600 30px/1.26 Inter;margin:0 0 12px;text-wrap:balance">Первая практика — за нами.</h1>
+              <p style="font:400 16px/1.5 Inter;color:#9aa0ab;margin:0">Дальше — если захочешь остаться. Без спешки.</p>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:22px;height:22px;border-radius:11px;background:rgba(201,138,107,.18);display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4.5L4.5 8L11 1" stroke="#C98A6B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font:400 15px Inter;color:#d3d6dc">Весь каталог состояний</span></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:22px;height:22px;border-radius:11px;background:rgba(201,138,107,.18);display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4.5L4.5 8L11 1" stroke="#C98A6B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font:400 15px Inter;color:#d3d6dc">Новые практики каждую неделю</span></div>
+              <div style="display:flex;align-items:center;gap:12px"><div style="width:22px;height:22px;border-radius:11px;background:rgba(201,138,107,.18);display:flex;align-items:center;justify-content:center;flex:none"><svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4.5L4.5 8L11 1" stroke="#C98A6B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span style="font:400 15px Inter;color:#d3d6dc">Таймер сна и ночной режим</span></div>
+            </div>
+          </div>
+          <button style="width:100%;padding:17px;border:none;border-radius:18px;background:#C98A6B;color:#12151C;font:600 17px Inter;margin-bottom:12px">Попробовать 7 дней бесплатно</button>
+          <p style="font:400 12px/1.5 Inter;color:#7f8590;text-align:center;margin:0 0 16px">Потом 399 ₽ в месяц. Отменить можно в любой момент.</p>
+          <div style="text-align:center"><span style="font:500 15px Inter;color:#8b909b">Пока не сейчас</span></div>
+        </div>
+        <div style="position:absolute;left:50%;bottom:9px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(255,255,255,.3)"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <p style="font:400 13px/1.6 Inter;color:#7c828e;margin:36px 0 0;max-width:640px">MVP-набор экранов собран целиком: онбординг <a class="gid" href="#2a">2a</a>–<a class="gid" href="#2c">2c</a>, главная день/вечер/ночь (<a class="gid" href="#3a">3a</a> · <a class="gid" href="#1b">1b</a> · <a class="gid" href="#3b">3b</a>), каталог <a class="gid" href="#1d">1d</a> и шит <a class="gid" href="#1c">1c</a>, плеер во всех 4 состояниях (<a class="gid" href="#1a">1a</a> · <a class="gid" href="#4a">4a</a> · <a class="gid" href="#4b">4b</a> · <a class="gid" href="#4c">4c</a>), итог практики <a class="gid" href="#5a">5a</a>, профиль <a class="gid" href="#6a">6a</a>, пейволл <a class="gid" href="#6b">6b</a>. Опционально дальше: светлая тема ключевых экранов и интерактивный кликабельный прототип связки экранов. Скажи, если что-то поправить.</p>
+</div>
+</x-dc>
+</body>
+</html>

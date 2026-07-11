@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Базовая тема: без ActionBar, тёмный фон. UI полностью на Compose. -->
+    <style name="Theme.Kompas" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bg_graphite</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Splash (androidx core-splashscreen). Ведёт на Theme.Kompas после старта. -->
+    <style name="Theme.Kompas.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bg_night</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Kompas</item>
+    </style>
+</resources>

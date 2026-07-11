@@ -1,0 +1,7 @@
+.DS_Store
+*.log
+android-build.log
+/build/
+.idea/
+*.iml
+local.properties
