@@ -4,5 +4,6 @@
     <color name="bg_graphite">#FF14171F</color>
     <color name="bg_night">#FF0E1014</color>
     <color name="logo_green">#FF2F6152</color>
+    <color name="icon_bg">#FF0E1014</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

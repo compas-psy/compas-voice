@@ -13,17 +13,35 @@ android {
         applicationId = "ru.cmpas.voice"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         vectorDrawables { useSupportLibrary = true }
+    }
+
+    signingConfigs {
+        // Стабильный ключ подписи, закоммичен в репозиторий, чтобы КАЖДЫЙ APK
+        // (debug и release, из любого CI-прогона) был подписан одинаково. Это:
+        //  1) позволяет установить APK в обход стора и обновлять его «на месте»
+        //     (без удаления), т.к. подпись не меняется между сборками;
+        //  2) снимает часть предупреждений Play Protect при sideload-установке.
+        // Это НЕ ключ для публикации в Google Play — для стора нужен отдельный
+        // upload key + Play App Signing (через секреты CI, не в git). См. PRIVACY-DPO.
+        create("kompas") {
+            storeFile = rootProject.file("keystore/kompas-voice.jks")
+            storePassword = "kompasvoice2026"
+            keyAlias = "kompas"
+            keyPassword = "kompasvoice2026"
+        }
     }
 
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("kompas")
         }
         release {
+            signingConfig = signingConfigs.getByName("kompas")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
