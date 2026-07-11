@@ -23,9 +23,21 @@ fun PracticeGroup.tint(): Color = when (this) {
 }
 
 /**
- * Дышащие пятна для фона карточки/плитки практики — «свой градиентный фон»
- * семейства (ТЗ §6): выраженное пятно из нижнего-правого угла + лёгкая
- * противоположная подсветка, чтобы оттенок семейства читался, а не терялся.
+ * Тёмный фон-градиент карточки/плитки в оттенке семейства (ТЗ §6 «свой
+ * градиентный фон», значения из прототипа): синеватый — Сон, зеленоватый —
+ * Тревога/Опора, тёплый — Выход/Разговоры. Поверх идёт радиальное пятно.
+ */
+fun familyCardColors(group: PracticeGroup): List<Color> = when (group) {
+    PracticeGroup.SLEEP -> listOf(Color(0xFF1A2233), Color(0xFF161B28))
+    PracticeGroup.EXIT_DAY -> listOf(Color(0xFF2B2530), Color(0xFF1D222C))
+    PracticeGroup.TALKS -> listOf(Color(0xFF2B2530), Color(0xFF1D222C))
+    PracticeGroup.ANXIETY -> listOf(Color(0xFF182A26), Color(0xFF141F1D))
+    PracticeGroup.SUPPORT -> listOf(Color(0xFF182A26), Color(0xFF141F1D))
+}
+
+/**
+ * Дышащие пятна поверх фона карточки/плитки — выраженное пятно из нижнего-правого
+ * угла + лёгкая противоположная подсветка, чтобы оттенок семейства читался.
  */
 fun tileBlobs(group: PracticeGroup): List<Blob> = listOf(
     Blob(color = group.tint(), cx = 0.84f, cy = 0.88f, radius = 0.72f, alpha = 0.78f),

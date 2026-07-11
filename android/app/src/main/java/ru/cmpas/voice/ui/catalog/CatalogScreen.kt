@@ -22,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.data.Practice
 import ru.cmpas.voice.data.PracticeCatalog
 import ru.cmpas.voice.ui.components.BreathingBackground
 import ru.cmpas.voice.ui.components.Chip
 import ru.cmpas.voice.ui.components.Eyebrow
+import ru.cmpas.voice.ui.components.familyCardColors
 import ru.cmpas.voice.ui.components.pressClickable
 import ru.cmpas.voice.ui.components.tileBlobs
 import ru.cmpas.voice.ui.theme.BgGraphite
@@ -81,7 +83,7 @@ private fun PracticeCard(practice: Practice, onOpenPractice: (String) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
-            .background(Surface)
+            .background(Brush.linearGradient(familyCardColors(practice.group)))
             .pressClickable { onOpenPractice(practice.id) },
     ) {
         BreathingBackground(blobs = tileBlobs(practice.group), modifier = Modifier.fillMaxSize())

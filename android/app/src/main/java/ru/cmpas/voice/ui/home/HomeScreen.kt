@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.data.HomeTile
@@ -30,6 +31,7 @@ import ru.cmpas.voice.data.TimeOfDay
 import ru.cmpas.voice.ui.components.BreathingBackground
 import ru.cmpas.voice.ui.components.Eyebrow
 import ru.cmpas.voice.ui.components.LogoMark
+import ru.cmpas.voice.ui.components.familyCardColors
 import ru.cmpas.voice.ui.components.pressClickable
 import ru.cmpas.voice.ui.components.tileBlobs
 import ru.cmpas.voice.ui.theme.BgGraphite
@@ -136,7 +138,11 @@ private fun StateTileView(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(22.dp))
-            .background(surface)
+            .then(
+                if (!night && practice != null)
+                    Modifier.background(Brush.linearGradient(familyCardColors(practice.group)))
+                else Modifier.background(surface)
+            )
             .pressClickable { onOpenPractice(tile.practiceId) },
     ) {
         if (practice != null) {
