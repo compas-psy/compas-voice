@@ -22,9 +22,14 @@ fun PracticeGroup.tint(): Color = when (this) {
     PracticeGroup.SUPPORT -> LogoGreen
 }
 
-/** Набор дышащих пятен для фона карточки/плитки практики (одно пятно, угол). */
+/**
+ * Дышащие пятна для фона карточки/плитки практики — «свой градиентный фон»
+ * семейства (ТЗ §6): выраженное пятно из нижнего-правого угла + лёгкая
+ * противоположная подсветка, чтобы оттенок семейства читался, а не терялся.
+ */
 fun tileBlobs(group: PracticeGroup): List<Blob> = listOf(
-    Blob(color = group.tint(), cx = 0.82f, cy = 0.86f, radius = 0.55f, alpha = 0.55f),
+    Blob(color = group.tint(), cx = 0.84f, cy = 0.88f, radius = 0.72f, alpha = 0.78f),
+    Blob(color = group.tint(), cx = 0.18f, cy = 0.14f, radius = 0.50f, alpha = 0.16f),
 )
 
 /** Многослойный дышащий фон плеера: terracotta + smoky + green. */

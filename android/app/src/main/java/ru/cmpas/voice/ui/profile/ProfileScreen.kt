@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.cmpas.voice.AppContainer
+import ru.cmpas.voice.ui.components.Byline
 import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.pressClickable
 import ru.cmpas.voice.data.Background
@@ -144,6 +145,17 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
             Spacer(Modifier.height(18.dp))
             SettingsCard {
                 SettingRow(title = "Очистить мои данные", value = "", onClick = { showClearDialog = true })
+            }
+
+            // «О приложении» — вордмарк + байлайн принадлежности к экосистеме.
+            Spacer(Modifier.height(30.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Тише", style = MaterialTheme.typography.titleMedium, color = TextSecondary)
+                Spacer(Modifier.height(6.dp))
+                Byline()
             }
         }
     }

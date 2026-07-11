@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.cmpas.voice.ui.components.Blob
 import ru.cmpas.voice.ui.components.BreathingBackground
+import ru.cmpas.voice.ui.components.Byline
 import ru.cmpas.voice.ui.components.GhostButton
 import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.PageDots
@@ -153,6 +154,10 @@ fun OnboardingScreen(onDone: (String) -> Unit) {
                 .padding(bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            if (pager.currentPage == 2) {
+                Byline()
+                Spacer(Modifier.height(14.dp))
+            }
             PageDots(count = 3, active = pager.currentPage)
             Spacer(Modifier.height(20.dp))
             if (pager.currentPage < 2) {
