@@ -17,7 +17,7 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val store = LocalStore(context)
     private val background: BackgroundAudio =
-        if (FeatureFlags.softBackground) ExoBackgroundAudio(context.applicationContext, appScope)
+        if (FeatureFlags.softBackground) ExoBackgroundAudio(context.applicationContext, appScope, store)
         else NoopBackgroundAudio
     val player = PlayerController(appScope, background)
 }

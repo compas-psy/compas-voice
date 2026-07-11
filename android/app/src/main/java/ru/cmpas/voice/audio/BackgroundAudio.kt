@@ -11,9 +11,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.cmpas.voice.data.Background
 import ru.cmpas.voice.data.FeatureFlags
+import ru.cmpas.voice.data.LocalStore
 import ru.cmpas.voice.data.SoundFamily
 
 /** Слой фонового звука (петля семьи + бинауральный слой за флагом). */
@@ -48,7 +50,17 @@ object NoopBackgroundAudio : BackgroundAudio {
 class ExoBackgroundAudio(
     private val context: Context,
     private val scope: CoroutineScope,
+    private val store: LocalStore,
 ) : BackgroundAudio {
+
+    init {
+        // Строгий LRU: подхватываем сохранённые индексы петель с диска при старте.
+        scope.launch {
+            store.loopIndices.first().forEach { (family, idx) ->
+                if (idx >= 0) lastLoopIndex[family] = idx
+            }
+        }
+    }
 
     private companion object {
         const val BG_VOLUME = 1.0f       // петли уже на −30 LUFS
@@ -78,6 +90,7 @@ class ExoBackgroundAudio(
         val prev = lastLoopIndex[family] ?: -1
         val idx = (prev + 1) % loops.size
         lastLoopIndex[family] = idx
+        scope.launch { store.setLoopIndex(family, idx) } // persist на диск
         return loops[idx]
     }
 

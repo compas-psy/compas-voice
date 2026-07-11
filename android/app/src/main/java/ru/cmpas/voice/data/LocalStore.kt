@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -98,6 +99,18 @@ class LocalStore(context: Context) {
             p[Keys.history] = json.encodeToString(updated)
             if (!(p[Keys.firstPracticeDone] ?: false)) p[Keys.firstPracticeDone] = true
         }
+    }
+
+    // ── LRU фоновых петель (persist на диск) ────────────────
+    private fun loopKey(family: SoundFamily) = intPreferencesKey("loop_idx_${family.name}")
+
+    /** Текущие сохранённые индексы последних петель по семьям (−1 = ещё не играли). */
+    val loopIndices: Flow<Map<SoundFamily, Int>> = prefs.map { p ->
+        SoundFamily.entries.associateWith { p[loopKey(it)] ?: -1 }
+    }
+
+    suspend fun setLoopIndex(family: SoundFamily, index: Int) {
+        ds.edit { it[loopKey(family)] = index }
     }
 
     /** Удаление всех пользовательских данных (право пользователя, DPO §6). */
