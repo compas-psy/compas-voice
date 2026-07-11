@@ -69,10 +69,10 @@ fun Eyebrow(text: String, modifier: Modifier = Modifier, color: Color = TextTert
 @Composable
 fun PrimaryButton(
     text: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     haptic: Boolean = true,
+    onClick: () -> Unit,
 ) {
     val hf = LocalHapticFeedback.current
     Box(
@@ -100,8 +100,8 @@ fun PrimaryButton(
 @Composable
 fun GhostButton(
     text: String,
-    onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit,
 ) {
     Box(
         modifier = modifier

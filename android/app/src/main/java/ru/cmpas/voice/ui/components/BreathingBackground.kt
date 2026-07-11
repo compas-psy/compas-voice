@@ -2,6 +2,7 @@ package ru.cmpas.voice.ui.components
 
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
