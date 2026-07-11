@@ -235,14 +235,16 @@ fun PlayerScreen(
                     Icons.Outlined.Bedtime,
                     state.sleepTimerMin?.let { "Таймер · $it мин" } ?: "Таймер сна",
                 ) { showSleepPicker = true }
+                // «Фон» — статус выбранной среды (не переключает звук посреди
+                // сессии; смена применяется со следующей практики, см. аудио §3).
                 ControlButton(
                     Icons.Outlined.GraphicEq,
-                    if (state.background == Background.SOFT) "Мягкий фон" else "Только голос",
-                ) {
-                    controller.setBackground(
-                        if (state.background == Background.SOFT) Background.VOICE else Background.SOFT
-                    )
-                }
+                    when (state.background) {
+                        Background.SOFT -> "Мягкий фон"
+                        Background.BINAURAL -> "Бинаур."
+                        else -> "Голос"
+                    },
+                )
             }
 
             // Прогресс.
@@ -325,10 +327,16 @@ private fun CenterZone(playing: Boolean, night: Boolean) {
 }
 
 @Composable
-private fun ControlButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun ControlButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: (() -> Unit)? = null,
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.pressClickable(onClick = onClick).padding(8.dp),
+        modifier = Modifier
+            .then(if (onClick != null) Modifier.pressClickable(onClick = onClick) else Modifier)
+            .padding(8.dp),
     ) {
         Box(
             modifier = Modifier.size(48.dp).clip(CircleShape).background(WhiteAlpha08),

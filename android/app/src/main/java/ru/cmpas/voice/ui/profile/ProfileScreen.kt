@@ -44,6 +44,7 @@ import ru.cmpas.voice.AppContainer
 import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.pressClickable
 import ru.cmpas.voice.data.Background
+import ru.cmpas.voice.data.FeatureFlags
 import ru.cmpas.voice.data.HistoryEntry
 import ru.cmpas.voice.data.Settings
 import ru.cmpas.voice.ui.theme.BgGraphite
@@ -113,8 +114,7 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                     title = "Фон по умолчанию",
                     value = settings.defaultBackground.title,
                     onClick = {
-                        val next = if (settings.defaultBackground == Background.VOICE) Background.SOFT else Background.VOICE
-                        scope.launch { container.store.setDefaultBackground(next) }
+                        scope.launch { container.store.setDefaultBackground(nextBackground(settings.defaultBackground)) }
                     },
                 )
                 Divider()
@@ -319,6 +319,17 @@ private fun Divider() {
             .padding(horizontal = 18.dp)
             .background(TextTertiary.copy(alpha = 0.12f))
     )
+}
+
+/** Циклирование значения «Фон по умолчанию». «Бинауральный» — только за флагом. */
+private fun nextBackground(current: Background): Background {
+    val options = if (FeatureFlags.spatialAudio) {
+        listOf(Background.VOICE, Background.SOFT, Background.BINAURAL)
+    } else {
+        listOf(Background.VOICE, Background.SOFT)
+    }
+    val i = options.indexOf(current).let { if (it < 0) 0 else it }
+    return options[(i + 1) % options.size]
 }
 
 private fun relativeDate(epochMs: Long, nowMs: Long): String {

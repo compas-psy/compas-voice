@@ -7,6 +7,15 @@ package ru.cmpas.voice.data
  */
 object PracticeCatalog {
 
+    /** Семья фоновых петель по группе состояния (см. инструкцию аудио §2). */
+    fun familyOf(group: PracticeGroup): SoundFamily = when (group) {
+        PracticeGroup.SLEEP -> SoundFamily.SLEEP
+        PracticeGroup.EXIT_DAY -> SoundFamily.TRANSITION
+        PracticeGroup.ANXIETY -> SoundFamily.GROUNDING
+        PracticeGroup.TALKS -> SoundFamily.GROUNDING
+        PracticeGroup.SUPPORT -> SoundFamily.ANCHOR
+    }
+
     val practices: List<Practice> = listOf(
         // ── Сон ──────────────────────────────────────────────
         Practice(
@@ -69,7 +78,7 @@ object PracticeCatalog {
             group = PracticeGroup.SUPPORT,
             stateCaption = "Не знаю, за что взяться",
         ),
-    )
+    ).map { it.copy(soundFamily = familyOf(it.group)) }
 
     private val byId = practices.associateBy { it.id }
 

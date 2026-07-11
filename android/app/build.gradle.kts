@@ -84,11 +84,9 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.core.splashscreen)
 
-    // Media3 (реальное аудио) — подключается на этапе интеграции аудио-пакета.
-    // Пока плеер работает на симулированном таймлайне (см. docs/ROADMAP.md).
-    // implementation(libs.media3.exoplayer)
-    // implementation(libs.media3.session)
-    // implementation(libs.media3.common)
+    // Media3 — фоновый аудио-слой (петли «Мягкого фона» + бинауралка за флагом).
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.common)
 
     implementation(libs.datastore)
     implementation(libs.serialization.json)

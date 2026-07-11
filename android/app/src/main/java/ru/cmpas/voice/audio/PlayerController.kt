@@ -24,7 +24,10 @@ import ru.cmpas.voice.data.SessionConfig
  * (Media3/ExoPlayer + MediaSession + фоновое воспроизведение) — следующий шаг,
  * см. docs/ROADMAP.md. Публичный контракт (`state`, методы) при этом не меняется.
  */
-class PlayerController(private val scope: CoroutineScope) {
+class PlayerController(
+    private val scope: CoroutineScope,
+    private val background: BackgroundAudio = NoopBackgroundAudio,
+) {
 
     data class State(
         val practiceId: String? = null,
@@ -52,6 +55,7 @@ class PlayerController(private val scope: CoroutineScope) {
     private var tickJob: Job? = null
     private val tickMs = 200L
     private val fadeWindowMs = 20_000L // последние 20с — угасание
+    private var sleepFadeSignaled = false
 
     fun start(practice: Practice, config: SessionConfig, checkInBefore: Int?, nowMs: Long) {
         tickJob?.cancel()
@@ -67,6 +71,9 @@ class PlayerController(private val scope: CoroutineScope) {
             durationMs = config.duration * 60_000L,
             startedAtEpochMs = nowMs,
         )
+        sleepFadeSignaled = false
+        // Ведущий слой (голос) появится позже; сейчас стартует только фон.
+        background.start(practice.soundFamily, config.background)
         tickJob = scope.launch { runClock() }
     }
 
@@ -108,6 +115,13 @@ class PlayerController(private val scope: CoroutineScope) {
                     finished = finished,
                 )
             }
+
+            val ns = _state.value
+            if (ns.phase == PlayerPhase.FADING && !sleepFadeSignaled) {
+                sleepFadeSignaled = true
+                background.enterSleepFade((ns.durationMs - ns.positionMs).coerceAtLeast(2_000L))
+            }
+            if (ns.finished) background.stop()
         }
     }
 
@@ -120,6 +134,10 @@ class PlayerController(private val scope: CoroutineScope) {
                 )
                 else -> s.copy(phase = PlayerPhase.PAUSED)
             }
+        }
+        val p = _state.value
+        if (p.isActive && !p.finished) {
+            if (p.phase == PlayerPhase.PAUSED) background.pause() else background.resume()
         }
     }
 
@@ -147,6 +165,7 @@ class PlayerController(private val scope: CoroutineScope) {
     fun stop() {
         tickJob?.cancel()
         tickJob = null
+        background.stop()
         _state.value = State()
     }
 }

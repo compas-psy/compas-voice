@@ -1,14 +1,20 @@
 package ru.cmpas.voice.ui.catalog
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -23,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.data.Background
+import ru.cmpas.voice.data.FeatureFlags
 import ru.cmpas.voice.data.Practice
 import ru.cmpas.voice.data.SessionConfig
 import ru.cmpas.voice.ui.components.CheckInSlider
@@ -33,6 +40,7 @@ import ru.cmpas.voice.ui.components.TextLink
 import ru.cmpas.voice.ui.theme.SurfaceAlt
 import ru.cmpas.voice.ui.theme.TextPrimary
 import ru.cmpas.voice.ui.theme.TextSecondary
+import ru.cmpas.voice.ui.theme.TextTertiary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,12 +86,35 @@ fun StartSheet(
             Spacer(Modifier.height(18.dp))
             Text("Фон", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
+            // «Бинауральный» появляется только за флагом spatialAudio (OFF в MVP).
+            val bgOptions = if (FeatureFlags.spatialAudio) {
+                listOf(Background.VOICE, Background.SOFT, Background.BINAURAL)
+            } else {
+                listOf(Background.VOICE, Background.SOFT)
+            }
             Segmented(
-                options = listOf(Background.VOICE, Background.SOFT),
+                options = bgOptions,
                 selected = background,
                 onSelect = { background = it },
                 label = { it.title },
             )
+            if (background == Background.BINAURAL) {
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Outlined.Headphones,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Мягкий стереозвук под голосом. Нужны наушники — в динамиках эффекта нет.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextTertiary,
+                    )
+                }
+            }
 
             if (!skipped) {
                 Spacer(Modifier.height(22.dp))
