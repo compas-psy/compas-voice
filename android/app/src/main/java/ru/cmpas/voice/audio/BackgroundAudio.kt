@@ -1,6 +1,7 @@
 package ru.cmpas.voice.audio
 
 import android.content.Context
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.net.Uri
@@ -65,6 +66,10 @@ class ExoBackgroundAudio(
     // LRU по семьям (round-robin): 4 запуска подряд → 4 разные петли.
     private val lastLoopIndex = HashMap<SoundFamily, Int>()
 
+    private var currentFamily: SoundFamily? = null
+    private var binauralDesired = false
+    private var routeCallback: AudioDeviceCallback? = null
+
     private fun rawUri(resId: Int): Uri =
         Uri.parse("android.resource://${context.packageName}/$resId")
 
@@ -89,9 +94,12 @@ class ExoBackgroundAudio(
         player.playWhenReady = true
         fadeTo(player, BG_VOLUME, FADE_IN_MS)
 
-        // Бинауральный слой — только за флагом и только в наушниках.
-        if (FeatureFlags.spatialAudio && mode == Background.BINAURAL && isHeadphonesConnected()) {
-            startBinaural(family)
+        // Бинауральный слой — за флагом, поверх фона, только в наушниках.
+        currentFamily = family
+        binauralDesired = FeatureFlags.spatialAudio && mode == Background.BINAURAL
+        if (binauralDesired) {
+            registerRouteCallback()
+            if (isHeadphonesConnected()) startBinaural(family)
         }
     }
 
@@ -112,15 +120,19 @@ class ExoBackgroundAudio(
     }
 
     override fun stop() {
+        binauralDesired = false
+        unregisterRouteCallback()
         bgPlayer?.let { p ->
             fadeTo(p, 0f, STOP_FADE_MS) {
                 p.stop(); p.clearMediaItems()
             }
         }
-        stopBinaural()
+        stopBinaural(2_000L)
     }
 
     override fun release() {
+        binauralDesired = false
+        unregisterRouteCallback()
         fadeJob?.cancel(); binFadeJob?.cancel()
         bgPlayer?.release(); bgPlayer = null
         binPlayer?.release(); binPlayer = null
@@ -152,8 +164,33 @@ class ExoBackgroundAudio(
         fadeBin(player, BIN_VOLUME, 9_000L) // мягкий вход 8–10 с
     }
 
-    private fun stopBinaural() {
-        binPlayer?.let { p -> fadeBin(p, 0f, 9_000L) { p.stop(); p.clearMediaItems() } }
+    private fun stopBinaural(durationMs: Long = 9_000L) {
+        binPlayer?.let { p -> fadeBin(p, 0f, durationMs) { p.stop(); p.clearMediaItems() } }
+    }
+
+    /** Подписка на смену аудио-маршрута: наушники вкл/выкл во время практики. */
+    private fun registerRouteCallback() {
+        if (routeCallback != null) return
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        val cb = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                if (binauralDesired && isHeadphonesConnected() && binPlayer?.isPlaying != true) {
+                    currentFamily?.let { startBinaural(it) } // fade-in при подключении
+                }
+            }
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                if (!isHeadphonesConnected()) stopBinaural(1_000L) // быстрый уход из динамика
+            }
+        }
+        am.registerAudioDeviceCallback(cb, null)
+        routeCallback = cb
+    }
+
+    private fun unregisterRouteCallback() {
+        val cb = routeCallback ?: return
+        (context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager)
+            ?.unregisterAudioDeviceCallback(cb)
+        routeCallback = null
     }
 
     private fun fadeBin(player: ExoPlayer, target: Float, durationMs: Long, then: (() -> Unit)? = null) {

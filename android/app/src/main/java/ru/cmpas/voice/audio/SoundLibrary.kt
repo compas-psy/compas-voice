@@ -7,18 +7,16 @@ import ru.cmpas.voice.data.SoundFamily
  * Пулы фоновых петель и бинауральных стемов по семьям.
  * Петли — нормализованные OGG (−30 LUFS, бесшовный кроссфейд в стык, 48 кГц).
  * Бинауралка — FLAC (без обработки, бесшовные синусы), играет только за флагом
- * spatialAudio (OFF в MVP).
- *
- * ⚠️ anchor: прислано 3 петли (ANCHOR_4 отсутствует) — LRU крутит по 3.
+ * spatialAudio.
  */
 object SoundLibrary {
 
-    /** Пул петель «Мягкого фона» по семье (LRU-выбор при старте). */
+    /** Пул петель «Мягкого фона» по семье (LRU-выбор при старте) — по 4 на семью. */
     fun loops(family: SoundFamily): List<Int> = when (family) {
         SoundFamily.SLEEP -> listOf(R.raw.bg_sleep_1, R.raw.bg_sleep_2, R.raw.bg_sleep_3, R.raw.bg_sleep_4)
         SoundFamily.GROUNDING -> listOf(R.raw.bg_grounding_1, R.raw.bg_grounding_2, R.raw.bg_grounding_3, R.raw.bg_grounding_4)
         SoundFamily.TRANSITION -> listOf(R.raw.bg_transition_1, R.raw.bg_transition_2, R.raw.bg_transition_3, R.raw.bg_transition_4)
-        SoundFamily.ANCHOR -> listOf(R.raw.bg_anchor_1, R.raw.bg_anchor_2, R.raw.bg_anchor_3)
+        SoundFamily.ANCHOR -> listOf(R.raw.bg_anchor_1, R.raw.bg_anchor_2, R.raw.bg_anchor_3, R.raw.bg_anchor_4)
     }
 
     /** Сонные «хвосты» — для угасания после голоса (пока — задел, см. ROADMAP). */
