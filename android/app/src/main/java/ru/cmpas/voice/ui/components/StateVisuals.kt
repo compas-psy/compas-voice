@@ -6,6 +6,7 @@ import ru.cmpas.voice.ui.theme.Indigo
 import ru.cmpas.voice.ui.theme.LogoGreen
 import ru.cmpas.voice.ui.theme.Ochre
 import ru.cmpas.voice.ui.theme.Smoky
+import ru.cmpas.voice.ui.theme.Teal
 import ru.cmpas.voice.ui.theme.Terracotta
 
 /**
@@ -16,7 +17,7 @@ import ru.cmpas.voice.ui.theme.Terracotta
 fun PracticeGroup.tint(): Color = when (this) {
     PracticeGroup.SLEEP -> Indigo
     PracticeGroup.EXIT_DAY -> Terracotta
-    PracticeGroup.ANXIETY -> LogoGreen
+    PracticeGroup.ANXIETY -> Teal
     PracticeGroup.TALKS -> Ochre
     PracticeGroup.SUPPORT -> LogoGreen
 }

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0a0b0e;font-family:Inter,-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#F1EEE8}
+  a{color:#C98A6B}a:hover{color:#dba184}
+  .wrap{padding:56px 60px 90px}
+  .h1{font:700 22px/1.2 Inter;margin:0 0 8px}
+  .sub{font:400 14px/1.55 Inter;color:#7c828e;max-width:680px;margin:0 0 26px}
+  .bar{display:flex;align-items:center;gap:14px;margin:0 0 40px;flex-wrap:wrap}
+  .btn{font:600 14px Inter;padding:11px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:#1c202a;color:#F1EEE8;cursor:pointer}
+  .btn.on{background:#C98A6B;color:#12151C;border-color:#C98A6B}
+  .hint{font:400 12.5px/1.5 Inter;color:#6b7280;max-width:340px}
+  .rowhead{font:600 15px Inter;color:#c7cbd2;margin:14px 0 18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+  .rowhead span{color:#6b7280;font-weight:400;margin-left:8px}
+  .row{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start}
+  .fam{display:flex;flex-direction:column;gap:14px;flex:none}
+  .famlab{display:flex;align-items:center;gap:9px}
+  .dot{width:10px;height:10px;border-radius:5px}
+  .famname{font:600 14px Inter;color:#e4e6ea}
+  .famsub{font:400 12px Inter;color:#6b7280}
+  .frame{width:300px;height:620px;border-radius:42px;position:relative;overflow:hidden;box-shadow:0 30px 70px -22px rgba(0,0,0,.7),0 0 0 10px #05070A,0 0 0 11px rgba(255,255,255,.05)}
+  .canv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .note{font:400 12.5px/1.55 Inter;color:#7c828e;max-width:250px}
+  .spec{margin-top:56px;padding-top:20px;border-top:1px solid rgba(255,255,255,.07);max-width:720px}
+  .spec h3{font:600 15px Inter;color:#c7cbd2;margin:0 0 12px}
+  .spec p{font:400 13px/1.65 Inter;color:#8b909b;margin:0 0 12px}
+  code{color:#c7cbd2;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+</style>
+</helmet>
+
+<div class="wrap">
+  <h1 class="h1">КОМПАС — дыхательный фон плеера</h1>
+  <p class="sub">Один программный движок на Canvas, уникальный оттенок на семейство практик. Базовое дыхание — цикл 10 сек (4с расширение / 6с сжатие), синхронно с пейсингом трека. Включи звук — фон начнёт реагировать на громкость (демо-пэд ниже как источник; в приложении сюда идёт реальный трек). Никаких видео/GIF: только время и немного математики.</p>
+
+  <div class="bar">
+    <button class="btn {{audioClass}}" onClick="{{toggleAudio}}">{{audioLabel}}</button>
+    <span class="hint">Демо-пэд — тихий синтезированный звук (лёгкий поклон бинауралу: две волны 96 / 96.4 Гц). Он только для наглядности реакции; вес приложения не растёт.</span>
+  </div>
+
+  <div class="rowhead">Сочетание · дымка + линии = один фон<span>слой цвета снизу, слой структуры сверху</span></div>
+  <p class="sub" style="margin-top:-6px">Так это и работает в плеере: дымка даёт цвет, глубину и «дыхание», а геометрия сверху — тонкую структуру и чёткую реакцию на звук. Оба рисуются одним движком в один кадр, просто друг за другом.</p>
+  <div class="row">
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#4C5678"></span><span class="famname">Сон</span><span class="famsub">туман + рябь колец</span></div>
+      <div class="frame"><canvas class="canv" data-mode="combo" data-geo="Rings" data-fam="sleep"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Сон</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Медленное погружение</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:32%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Индиго-туман + расходящиеся кольца. Цвет усыпляет, кольца дают едва заметную живость.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#C98A6B"></span><span class="famname">Выход из дня</span><span class="famsub">туман + лучи</span></div>
+      <div class="frame"><canvas class="canv" data-mode="combo" data-geo="Spokes" data-fam="day"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Выход из дня</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Ночь без внутренних совещаний</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:48%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Терракотовый туман + вращающиеся лучи. Тёплая корона заметно откликается на голос и музыку.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#2D5F4F"></span><span class="famname">Опора</span><span class="famsub">туман + грань</span></div>
+      <div class="frame"><canvas class="canv" data-mode="combo" data-geo="Edge" data-fam="support"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Опора</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Вернуться к себе</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:40%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Лесной туман + вращающийся контур. Геометрия держит центр — ощущение опоры и устойчивости.</p>
+    </div>
+  </div>
+
+  <div class="rowhead">Лёгкая геометрия · линии, реагирующие на звук<span>тот же движок — форма вместо тумана</span></div>
+  <div class="row">
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#5D6F84"></span><span class="famname">Кольца</span><span class="famsub">рябь от центра</span></div>
+      <div class="frame"><canvas class="canv" data-mode="rings" data-fam="sleep"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.6)">Сон</div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:32%;border-radius:2px;background:rgba(241,238,232,.6)"></div></div>
+        </div>
+      </div>
+      <p class="note">Кольца расходятся от центра и пульсируют на громкости. Тихо, гипнотично — как круги по воде.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#C98A6B"></span><span class="famname">Лучи</span><span class="famsub">радиальные линии</span></div>
+      <div class="frame"><canvas class="canv" data-mode="spokes" data-fam="day"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.6)">Выход из дня</div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:48%;border-radius:2px;background:rgba(241,238,232,.6)"></div></div>
+        </div>
+      </div>
+      <p class="note">Лучи медленно вращаются, длина каждого колышется от звука — тёплая корона вокруг центра.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#3E6E5E"></span><span class="famname">Волны</span><span class="famsub">мягкие линии-волны</span></div>
+      <div class="frame"><canvas class="canv" data-mode="waves" data-fam="anxiety"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.6)">Тревога и перегрузка</div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:22%;border-radius:2px;background:rgba(241,238,232,.6)"></div></div>
+        </div>
+      </div>
+      <p class="note">Горизонтальные линии колышутся как медленные волны; амплитуда растёт со звуком. Замедляет дыхание глазами.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#2D5F4F"></span><span class="famname">Грань</span><span class="famsub">вращающийся контур</span></div>
+      <div class="frame"><canvas class="canv" data-mode="edge" data-fam="support"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.6)">Опора</div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:40%;border-radius:2px;background:rgba(241,238,232,.6)"></div></div>
+        </div>
+      </div>
+      <p class="note">Тонкие контуры-грани медленно вращаются и дышат — сдержанный поклон «компасу». Устойчиво, геометрично.</p>
+    </div>
+  </div>
+
+  <div class="rowhead">Дымка · дыхание с колыханием<span>мягкие туманы, теперь плавают живее</span></div>
+  <div class="row">
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#4C5678"></span><span class="famname">Сон</span><span class="famsub">холодный индиго</span></div>
+      <div class="frame"><canvas class="canv" data-fam="sleep"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Сон</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Медленное погружение</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:32%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Синие туманы, минимальная яркость. Реакция на звук приглушена — сон не должен «пульсировать».</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#C98A6B"></span><span class="famname">Выход из дня</span><span class="famsub">тёплая терракота</span></div>
+      <div class="frame"><canvas class="canv" data-fam="day"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Выход из дня</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Ночь без внутренних совещаний</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:48%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Тёплый акцент бренда. Умеренная реакция — фон «дышит» заметнее на музыкальных всплесках.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#3E6E5E"></span><span class="famname">Тревога и перегрузка</span><span class="famsub">дымчатый тил</span></div>
+      <div class="frame"><canvas class="canv" data-fam="anxiety"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Тревога и перегрузка</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Слишком много всего сразу</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:22%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Приземлённая зелень. Очень медленный дрейф — визуально «замедляет», а не будоражит.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#B4744F"></span><span class="famname">Разговоры и решения</span><span class="famsub">охра / янтарь</span></div>
+      <div class="frame"><canvas class="canv" data-fam="talks"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Разговоры и решения</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Перед трудным разговором</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:58%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Тёплый янтарь, чуть больше движения — собранность и ясность перед действием.</p>
+    </div>
+
+    <div class="fam">
+      <div class="famlab"><span class="dot" style="background:#2D5F4F"></span><span class="famname">Опора</span><span class="famsub">глубокий лес</span></div>
+      <div class="frame"><canvas class="canv" data-fam="support"></canvas>
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="position:absolute;top:26px;left:24px;font:600 11px Inter;letter-spacing:.14em;text-transform:uppercase;color:rgba(241,238,232,.7)">Опора</div>
+          <div style="position:absolute;top:48px;left:24px;right:24px;font:600 21px/1.25 Inter;color:#F1EEE8">Вернуться к себе</div>
+          <div style="position:absolute;left:50%;top:300px;transform:translate(-50%,-50%);width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;gap:7px"><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span><span style="width:5px;height:24px;border-radius:3px;background:#F1EEE8"></span></div>
+          <div style="position:absolute;left:24px;right:24px;bottom:34px;height:2px;border-radius:2px;background:rgba(255,255,255,.14)"><div style="height:2px;width:40%;border-radius:2px;background:rgba(241,238,232,.7)"></div></div>
+        </div>
+      </div>
+      <p class="note">Зелёный роднит с логотипом-деревом. Устойчивый ритм, минимум дрейфа — ощущение почвы под ногами.</p>
+    </div>
+  </div>
+
+  <div class="spec">
+    <h3>Как это устроено (для реализации)</h3>
+    <p><strong>Дыхание.</strong> Одна функция фазы от времени: цикл 10с, <code>t&lt;4с</code> → расширение <code>smoothstep(t/4)</code>, дальше → сжатие <code>smoothstep(1−(t−4)/6)</code>. Никаких предзаписанных кадров — только <code>requestAnimationFrame</code> и текущее время. 3 мягких радиальных пятна на слой, режим смешивания <code>lighter</code> поверх почти-чёрной базы; медленный дрейф через <code>sin/cos(t)</code>.</p>
+    <p><strong>Семейства.</strong> Отличаются только палитрой пятен, базовым тоном и коэффициентами (скорость дрейфа, сила реакции). Один движок — данные разные. Сон: холодный индиго, реакция приглушена. Выход из дня: терракота. Тревога: тил, самый медленный дрейф. Разговоры: янтарь, чуть живее. Опора: лес, устойчивый ритм.</p>
+    <p><strong>Реакция на звук.</strong> <code>AudioContext</code> → <code>AnalyserNode</code> на выходной микс трека; каждый кадр берём среднюю громкость (RMS), сглаживаем (<code>level += (target−level)*0.08</code>) и подмешиваем к масштабу/яркости пятен: <code>scale = 0.82 + breath*0.30 + level*react</code>. Голос — ведущий, поэтому реакцию держим мягкой, чтобы фон дышал с музыкой, а не «прыгал» на согласных.</p>
+    <p><strong>Бережность и вес.</strong> Кэп <code>devicePixelRatio</code> до 2, целевые 30 fps достаточно; ставить на паузу при уходе в фон и на экране паузы; уважать <code>prefers-reduced-motion</code> (замереть на среднем вдохе). Файлов ассетов — ноль. В SwiftUI то же на <code>TimelineView</code> + <code>Canvas</code> (или <code>CAGradientLayer</code>-слои), громкость — из <code>AVAudioEngine</code> tap / <code>installTap(onBus:)</code>.</p>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { audio: false };
+
+  renderVals() {
+    return {
+      audioLabel: this.state.audio ? '■ Выключить звук' : '▶ Включить звук (демо-пэд)',
+      audioClass: this.state.audio ? 'on' : '',
+      toggleAudio: () => this.toggleAudio(),
+    };
+  }
+
+  componentDidMount() {
+    this.reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.level = 0; this.target = 0;
+    this.families = {
+      sleep:   { base:'#080A11', react:0.28, drift:0.85, blobs:[[76,86,120],[58,74,122],[40,52,92]] },
+      day:     { base:'#100C0E', react:0.55, drift:1.0,  blobs:[[201,138,107],[180,116,79],[120,92,110]] },
+      anxiety: { base:'#080F0D', react:0.4,  drift:0.6,  blobs:[[47,97,82],[62,110,94],[86,120,110]] },
+      talks:   { base:'#110C09', react:0.7,  drift:1.25, blobs:[[180,116,79],[205,150,92],[150,100,68]] },
+      support: { base:'#0A0F0C', react:0.45, drift:0.55, blobs:[[45,95,79],[62,112,84],[84,116,72]] },
+    };
+    this.canvases = Array.from(document.querySelectorAll('canvas.canv')).map((c) => {
+      const cfg = this.families[c.dataset.fam] || this.families.sleep;
+      const ctx = c.getContext('2d');
+      // per-blob params (position, size, drift phase/speed, reaction weight)
+      const P = cfg.blobs.map((rgb, i) => ({
+        rgb,
+        x: [0.32, 0.70, 0.52][i], y: [0.34, 0.66, 0.86][i],
+        r: [0.72, 0.66, 0.52][i],
+        ds: (0.10 + i * 0.05) * cfg.drift,
+        ds2: (0.23 + i * 0.07) * cfg.drift,
+        ph: i * 2.1,
+        react: [1, 0.7, 0.45][i],
+      }));
+      const mode = c.dataset.mode || 'fog';
+      const geo = c.dataset.geo || 'Rings';
+      return { c, ctx, cfg, P, mode, geo, w: 0, h: 0, dpr: 1 };
+    });
+    this.resize();
+    window.addEventListener('resize', this._rz = () => this.resize());
+    this.start = performance.now();
+    this.raf = requestAnimationFrame(this._tick = (t) => this.tick(t));
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('resize', this._rz);
+    if (this.ac) { try { this.ac.close(); } catch (e) {} }
+  }
+
+  resize() {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    for (const o of this.canvases) {
+      const rect = o.c.getBoundingClientRect();
+      if (!rect.width) continue;
+      o.w = rect.width; o.h = rect.height; o.dpr = dpr;
+      o.c.width = Math.round(rect.width * dpr);
+      o.c.height = Math.round(rect.height * dpr);
+      o.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+  }
+
+  smooth(x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); }
+
+  tick(now) {
+    const t = (now - this.start) / 1000;
+    const tt = t % 10;
+    let breath = tt < 4 ? this.smooth(tt / 4) : this.smooth(1 - (tt - 4) / 6);
+    if (this.reduce) breath = 0.6;
+
+    if (this.analyser) {
+      this.analyser.getByteFrequencyData(this.freq);
+      let s = 0; for (let i = 0; i < this.freq.length; i++) s += this.freq[i];
+      this.target = (s / this.freq.length) / 255;
+    } else this.target = 0;
+    this.level += (this.target - this.level) * 0.08;
+
+    for (const o of this.canvases) this.draw(o, t, breath);
+    this.raf = requestAnimationFrame(this._tick);
+  }
+
+  draw(o, t, breath) {
+    const { ctx, cfg, w, h } = o;
+    if (!w) return;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = cfg.base;
+    ctx.fillRect(0, 0, w, h);
+    if (o.mode === 'combo') { this.drawFog(o, t, breath); this['draw' + o.geo](o, t, breath); }
+    else if (o.mode === 'rings') this.drawRings(o, t, breath);
+    else if (o.mode === 'spokes') this.drawSpokes(o, t, breath);
+    else if (o.mode === 'waves') this.drawWaves(o, t, breath);
+    else if (o.mode === 'edge') this.drawEdge(o, t, breath);
+    else this.drawFog(o, t, breath);
+    this.vignette(o);
+  }
+
+  drawFog(o, t, breath) {
+    const { ctx, cfg, P, w, h } = o;
+    const min = Math.min(w, h);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const b of P) {
+      // primary slow drift + secondary faster sway = "плавает", not just scales
+      const sway = 0.055 + this.level * 0.03;
+      const cx = w * (b.x + Math.sin(t * b.ds + b.ph) * sway + Math.sin(t * b.ds2 + b.ph * 1.7) * sway * 0.5);
+      const cy = h * (b.y + Math.cos(t * b.ds * 0.85 + b.ph) * sway + Math.cos(t * b.ds2 * 1.1 + b.ph) * sway * 0.45);
+      const audio = this.level * cfg.react * b.react;
+      // radius wobbles independently on each axis -> soft amoeba pulse
+      const wob = 1 + Math.sin(t * b.ds2 * 1.4 + b.ph) * 0.06;
+      const scale = (0.80 + breath * 0.30 + audio * 0.9) * wob;
+      const R = min * b.r * scale;
+      const a = (0.42 + breath * 0.34) * (0.7 + audio * 1.1);
+      const [r, gr, bl] = b.rgb;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+      g.addColorStop(0, `rgba(${r},${gr},${bl},${Math.min(0.85, a)})`);
+      g.addColorStop(0.55, `rgba(${r},${gr},${bl},${Math.min(0.4, a * 0.45)})`);
+      g.addColorStop(1, `rgba(${r},${gr},${bl},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  drawRings(o, t, breath) {
+    const { ctx, cfg, w, h } = o;
+    const min = Math.min(w, h);
+    const cx = w / 2, cy = h * 0.5;
+    const [r, g, b] = cfg.blobs[0];
+    const maxR = min * 0.66;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const N = 7;
+    for (let i = 0; i < N; i++) {
+      const frac = ((t * 0.05 + i / N) % 1);
+      // gentle side-to-side sway of the ring center for liveliness
+      const ox = Math.sin(t * 0.5 + i) * min * 0.02 * (0.5 + this.level);
+      const oy = Math.cos(t * 0.4 + i) * min * 0.02 * (0.5 + this.level);
+      const rad = frac * maxR * (0.9 + breath * 0.12 + this.level * 0.3);
+      const a = (1 - frac) * (0.32 + this.level * 0.7) * 0.6;
+      ctx.strokeStyle = `rgba(${r},${g},${b},${Math.max(0, a).toFixed(3)})`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(cx + ox, cy + oy, Math.max(0, rad), 0, Math.PI * 2); ctx.stroke();
+    }
+    const cr = min * (0.13 + breath * 0.05 + this.level * 0.22);
+    ctx.strokeStyle = `rgba(${r},${g},${b},${(0.45 + this.level * 0.4).toFixed(3)})`;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  drawSpokes(o, t, breath) {
+    const { ctx, cfg, w, h } = o;
+    const min = Math.min(w, h);
+    const cx = w / 2, cy = h * 0.5;
+    const [r, g, b] = cfg.blobs[0];
+    const M = 52, rot = t * 0.045, inner = min * 0.1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1.1; ctx.lineCap = 'round';
+    for (let k = 0; k < M; k++) {
+      const ang = rot + k / M * Math.PI * 2;
+      const wob = 0.55 + 0.45 * Math.sin(k * 0.7 + t * 1.3);
+      const len = min * (0.22 + breath * 0.1 + this.level * 0.42 * wob);
+      const a = (0.09 + this.level * 0.3) * (0.55 + 0.45 * Math.sin(k * 0.7 + t));
+      const x1 = cx + Math.cos(ang) * inner, y1 = cy + Math.sin(ang) * inner;
+      const x2 = cx + Math.cos(ang) * (inner + len), y2 = cy + Math.sin(ang) * (inner + len);
+      ctx.strokeStyle = `rgba(${r},${g},${b},${Math.max(0, a).toFixed(3)})`;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawWaves(o, t, breath) {
+    const { ctx, cfg, w, h } = o;
+    const [r, g, b] = cfg.blobs[0];
+    const lines = 6;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+    for (let i = 0; i < lines; i++) {
+      const yBase = h * (0.26 + i * 0.095);
+      const amp = h * (0.012 + this.level * 0.075 + breath * 0.014);
+      const k = 1.3 + i * 0.28;
+      const ph = t * (0.55 + i * 0.16) + i;
+      const a = 0.13 + this.level * 0.32;
+      ctx.strokeStyle = `rgba(${r},${g},${b},${a.toFixed(3)})`;
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 8) {
+        const env = Math.sin((x / w) * Math.PI); // fade at edges
+        const y = yBase + Math.sin((x / w) * Math.PI * 2 * k + ph) * amp * env;
+        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  drawEdge(o, t, breath) {
+    const { ctx, cfg, w, h } = o;
+    const min = Math.min(w, h);
+    const cx = w / 2, cy = h * 0.5;
+    const [r, g, b] = cfg.blobs[0];
+    const sides = 3;
+    const R = min * (0.24 + breath * 0.08 + this.level * 0.28);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineJoin = 'round';
+    const poly = (rad, ang0, a, lw) => {
+      ctx.strokeStyle = `rgba(${r},${g},${b},${a})`;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      for (let k = 0; k <= sides; k++) {
+        const ang = ang0 + k / sides * Math.PI * 2 - Math.PI / 2;
+        const x = cx + Math.cos(ang) * rad, y = cy + Math.sin(ang) * rad;
+        if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    };
+    poly(R, t * 0.1, 0.5, 1.8);
+    poly(R * 0.6, -t * 0.15, 0.3, 1.3);
+    poly(R * 1.45, t * 0.06, 0.12 + this.level * 0.32, 1.1);
+    ctx.restore();
+  }
+
+  vignette(o) {
+    const { ctx, w, h } = o;
+    ctx.globalCompositeOperation = 'source-over';
+    const v = ctx.createLinearGradient(0, 0, 0, h);
+    v.addColorStop(0, 'rgba(6,7,10,0.55)');
+    v.addColorStop(0.32, 'rgba(6,7,10,0.05)');
+    v.addColorStop(0.7, 'rgba(6,7,10,0.15)');
+    v.addColorStop(1, 'rgba(6,7,10,0.7)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, w, h);
+  }
+
+  toggleAudio() {
+    if (this.state.audio) {
+      if (this.ac) { try { this.ac.suspend(); } catch (e) {} }
+      this.analyser = null;
+      this.setState({ audio: false });
+      return;
+    }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!this.ac) {
+        this.ac = new AC();
+        const master = this.ac.createGain(); master.gain.value = 0.0; master.connect(this.ac.destination);
+        // soft ambient pad — two near-detuned sines (a nod to binaural), filtered
+        const lp = this.ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.connect(master);
+        const o1 = this.ac.createOscillator(); o1.type = 'sine'; o1.frequency.value = 96;
+        const o2 = this.ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = 96.4;
+        const o3 = this.ac.createOscillator(); o3.type = 'sine'; o3.frequency.value = 192;
+        const og = this.ac.createGain(); og.gain.value = 0.5; o3.connect(og); og.connect(lp);
+        o1.connect(lp); o2.connect(lp);
+        // slow swell LFO so the level rises and falls (demonstrates reactivity)
+        const lfo = this.ac.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.14;
+        const lfoGain = this.ac.createGain(); lfoGain.gain.value = 0.022;
+        lfo.connect(lfoGain); lfoGain.connect(master.gain);
+        master.gain.value = 0.028;
+        const an = this.ac.createAnalyser(); an.fftSize = 64; an.smoothingTimeConstant = 0.8;
+        master.connect(an);
+        o1.start(); o2.start(); o3.start(); lfo.start();
+        this._master = master; this._an = an; this.freq = new Uint8Array(an.frequencyBinCount);
+      }
+      this.ac.resume();
+      this.analyser = this._an;
+      this.setState({ audio: true });
+    } catch (e) {
+      console.warn('audio unavailable', e);
+    }
+  }
+}
+</script>
+</body>
+</html>

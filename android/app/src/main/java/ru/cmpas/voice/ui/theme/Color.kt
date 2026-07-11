@@ -27,11 +27,12 @@ val Terracotta      = Color(0xFFC98A6B) // CTA, активный таб, гал�
 val TerracottaDeep  = Color(0xFFB4744F) // прессы/градиенты
 val TerracottaMuted = Color(0xFF8B7A6A) // terracotta на ночных экранах
 
-// ── Вторичные / фоновые оттенки состояний ──────────────────────
-val LogoGreen = Color(0xFF2F6152) // зелёный круг логотипа, зелёные пятна
+// ── Вторичные / фоновые оттенки состояний (ТЗ §5) ──────────────
+val LogoGreen = Color(0xFF2D5F4F) // круг логотипа; forest — семейство «Опора»
+val Teal      = Color(0xFF3E6E5E) // teal-green — «Тревога и перегрузка»
 val Smoky     = Color(0xFF5D6F84) // дымчато-серо-синий
-val Indigo    = Color(0xFF4C5678) // фон практик про сон
-val Ochre     = Color(0xFFB4744F) // фон «разговоры и решения»
+val Indigo    = Color(0xFF4C5678) // «Сон»
+val Ochre     = Color(0xFFB4744F) // «Разговоры и решения»
 
 // ── Текст ───────────────────────────────────────────────────────
 val TextPrimary      = Color(0xFFF1EEE8) // тёплый оффвайт

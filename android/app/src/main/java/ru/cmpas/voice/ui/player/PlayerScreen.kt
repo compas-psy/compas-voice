@@ -149,20 +149,12 @@ fun PlayerScreen(
             // Тап по всему экрану = пауза/плей.
             .pressClickable { controller.togglePlayPause() },
     ) {
-        BreathingBackground(
-            blobs = playerBlobs(state.group),
+        // Программный фон плеера (ТЗ §8): дымка + геометрия по семейству,
+        // дыхание 10с, лёгкая реакция; на угасании затухает вместе со сценой.
+        PlayerBackground(
+            group = state.group,
             running = playing && phase != PlayerPhase.FADING,
-            modifier = Modifier.fillMaxSize(),
-        )
-        // Затемняющий вертикальный градиент для читаемости текста.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(bg.copy(alpha = 0.55f), Color.Transparent, bg.copy(alpha = 0.75f)),
-                    )
-                )
+            modifier = Modifier.fillMaxSize().alpha(uiAlpha),
         )
 
         Column(
