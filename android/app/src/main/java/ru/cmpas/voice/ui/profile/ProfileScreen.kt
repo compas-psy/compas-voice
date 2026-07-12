@@ -67,6 +67,7 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
     val settings by container.store.settings.collectAsState(initial = Settings())
     val history by container.store.history.collectAsState(initial = emptyList())
     var showClearDialog by remember { mutableStateOf(false) }
+    var showAllHistory by remember { mutableStateOf(false) }
 
     val notifPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -107,9 +108,22 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                     )
                 }
             } else {
-                history.take(8).forEach { entry ->
+                val shown = if (showAllHistory) history else history.take(3)
+                shown.forEach { entry ->
                     RecentRow(entry, nowMs)
                     Spacer(Modifier.height(10.dp))
+                }
+                if (history.size > 3) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        if (showAllHistory) "Свернуть" else "Показать все (${history.size})  →",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .pressClickable { showAllHistory = !showAllHistory }
+                            .padding(vertical = 6.dp, horizontal = 2.dp),
+                    )
                 }
             }
 
@@ -209,7 +223,7 @@ private fun TendencyCard(history: List<HistoryEntry>, nowMs: Long) {
             .background(SurfaceAlt)
             .padding(18.dp),
     ) {
-        if (recent.size < 3) {
+        if (recent.size < 2) {
             Text(
                 "Здесь появится спокойная сводка, когда наберётся немного практик.",
                 style = MaterialTheme.typography.bodyMedium,

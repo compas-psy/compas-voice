@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.outlined.Bedtime
@@ -107,7 +108,6 @@ fun PlayerScreen(
     onExit: () -> Unit,
 ) {
     val state by controller.state.collectAsState()
-    var showSleepPicker by remember { mutableStateOf(false) }
 
     // Экран мог открыться раньше, чем стартовала практика — защита.
     if (!state.isActive) {
@@ -125,8 +125,13 @@ fun PlayerScreen(
     val playing = phase == PlayerPhase.PLAYING || phase == PlayerPhase.NIGHT || phase == PlayerPhase.FADING
     val textPrimary = if (night) TextPrimaryNight else TextPrimary
 
-    // Сонное угасание: к концу трека весь UI гаснет.
-    val fadeAlpha = if (phase == PlayerPhase.FADING) (1f - state.fraction).coerceIn(0.06f, 1f) else 1f
+    // Сонное угасание: к концу трека (и на хвосте «уснуть под фон») весь UI гаснет.
+    val fadeAlpha = when {
+        state.tailActive && state.tailTotalMs > 0 ->
+            (0.06f + 0.42f * (state.tailRemainingMs.toFloat() / state.tailTotalMs)).coerceIn(0.06f, 1f)
+        phase == PlayerPhase.FADING -> (1f - state.fraction).coerceIn(0.06f, 1f)
+        else -> 1f
+    }
     val uiAlpha by animateFloatAsState(fadeAlpha, tween(1200), label = "uiFade")
 
     // Автопонижение яркости на ночных/сонных практиках; восстановление при выходе.
@@ -148,10 +153,10 @@ fun PlayerScreen(
         }
     }
 
-    // Завершение практики.
+    // Завершение практики. Хвост «уснуть под фон» → без экрана «после».
     LaunchedEffect(state.finished) {
         if (state.finished) {
-            if (state.isSleep) onSleepDone() else onGoAftercare()
+            if (state.isSleep || state.tailActive) onSleepDone() else onGoAftercare()
         }
     }
 
@@ -219,6 +224,8 @@ fun PlayerScreen(
                     Spacer(Modifier.height(28.dp))
                     Text(
                         when {
+                            state.tailActive && phase == PlayerPhase.PAUSED -> "Фон на паузе · нажми, чтобы продолжить"
+                            state.tailActive -> "Засыпай под фон · звук тихо угасает"
                             phase == PlayerPhase.PAUSED -> "На паузе · нажми, чтобы продолжить"
                             night -> "Медленное погружение"
                             else -> "Нажми в любом месте, чтобы поставить на паузу"
@@ -230,41 +237,39 @@ fun PlayerScreen(
                 }
             }
 
-            // Контролы.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                ControlButton(Icons.Filled.Replay, "−15 сек") { controller.seekBack15() }
-                ControlButton(
-                    Icons.Outlined.Bedtime,
-                    state.sleepTimerMin?.let { "Таймер · $it мин" } ?: "Таймер сна",
-                ) { showSleepPicker = true }
-                // «Фон» — статус выбранной среды (не переключает звук посреди
-                // сессии; смена применяется со следующей практики, см. аудио §3).
-                ControlButton(
-                    Icons.Outlined.GraphicEq,
-                    when (state.background) {
-                        Background.SOFT -> "Мягкий фон"
-                        Background.BINAURAL -> "Объём"
-                        else -> "Голос"
-                    },
-                )
+            // На хвосте «уснуть под фон» контролы и прогресс скрыты — только тишина.
+            if (!state.tailActive) {
+                // Контролы.
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    ControlButton(Icons.Filled.Replay, "−15 сек") { controller.seekBack15() }
+                    // «Уснуть под фон»: тумблер — фон тянется по длине практики.
+                    ControlButton(
+                        if (state.sleepUnderBg) Icons.Filled.Bedtime else Icons.Outlined.Bedtime,
+                        "Уснуть под фон",
+                        active = state.sleepUnderBg,
+                    ) { controller.setSleepUnderBackground(!state.sleepUnderBg) }
+                    // «Фон» — переключение звуковой среды прямо во время практики.
+                    ControlButton(
+                        Icons.Outlined.GraphicEq,
+                        when (state.background) {
+                            Background.SOFT -> "Мягкий фон"
+                            Background.BINAURAL -> "Объём"
+                            else -> "Голос"
+                        },
+                    ) { controller.cycleBackground() }
+                }
+
+                // Прогресс + перемотка (зона 56dp, исключена из тап-паузы, ТЗ §4).
+                Spacer(Modifier.height(6.dp))
+                ProgressZone(state = state, controller = controller)
+                Spacer(Modifier.height(10.dp))
+            } else {
+                Spacer(Modifier.height(24.dp))
             }
-
-            // Прогресс + перемотка (зона 56dp, исключена из тап-паузы, ТЗ §4).
-            Spacer(Modifier.height(6.dp))
-            ProgressZone(state = state, controller = controller)
-            Spacer(Modifier.height(10.dp))
         }
-    }
-
-    if (showSleepPicker) {
-        SleepTimerPicker(
-            current = state.sleepTimerMin,
-            onPick = { controller.setSleepTimer(it); showSleepPicker = false },
-            onDismiss = { showSleepPicker = false },
-        )
     }
 }
 
@@ -317,6 +322,7 @@ private fun CenterZone(playing: Boolean, night: Boolean) {
 private fun ControlButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    active: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     Column(
@@ -326,13 +332,26 @@ private fun ControlButton(
             .padding(8.dp),
     ) {
         Box(
-            modifier = Modifier.size(48.dp).clip(CircleShape).background(WhiteAlpha08),
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(if (active) TerracottaMuted.copy(alpha = 0.28f) else WhiteAlpha08),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = label, tint = TextSecondary, modifier = Modifier.size(22.dp))
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = if (active) TextPrimary else TextSecondary,
+                modifier = Modifier.size(22.dp),
+            )
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall, color = TextTertiary, textAlign = TextAlign.Center)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (active) TextSecondary else TextTertiary,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

@@ -127,7 +127,8 @@ class ExoBackgroundAudio(
     }
 
     override fun enterSleepFade(windowMs: Long) {
-        val w = windowMs.coerceIn(2_000L, 240_000L)
+        // Окно = длина практики («уснуть под фон»), до 30 мин.
+        val w = windowMs.coerceIn(2_000L, 30 * 60_000L)
         bgPlayer?.let { p -> fadeTo(p, 0f, w) }
         binPlayer?.let { p -> fadeBin(p, 0f, w) }
     }

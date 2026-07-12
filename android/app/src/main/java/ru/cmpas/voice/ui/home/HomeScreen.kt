@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.data.HomeTile
 import ru.cmpas.voice.data.PracticeCatalog
 import ru.cmpas.voice.data.TimeOfDay
+import ru.cmpas.voice.ui.components.AutoResizeText
 import ru.cmpas.voice.ui.components.BreathingBackground
 import ru.cmpas.voice.ui.components.Eyebrow
 import ru.cmpas.voice.ui.components.LogoMark
@@ -168,10 +169,11 @@ private fun StateTileView(
             } else {
                 Spacer(Modifier.height(1.dp))
             }
-            Text(
+            AutoResizeText(
                 tile.title,
                 style = if (big) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
                 color = textPrimary,
+                maxLines = 2,
             )
         }
     }

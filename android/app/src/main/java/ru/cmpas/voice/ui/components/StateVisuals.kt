@@ -36,12 +36,23 @@ fun familyCardColors(group: PracticeGroup): List<Color> = when (group) {
 }
 
 /**
- * Дышащие пятна поверх фона карточки/плитки — выраженное пятно из нижнего-правого
+ * Дышащие пятна поверх фона плитки (Дом) — выраженное пятно из нижнего-правого
  * угла + лёгкая противоположная подсветка, чтобы оттенок семейства читался.
  */
 fun tileBlobs(group: PracticeGroup): List<Blob> = listOf(
     Blob(color = group.tint(), cx = 0.84f, cy = 0.88f, radius = 0.72f, alpha = 0.78f),
     Blob(color = group.tint(), cx = 0.18f, cy = 0.14f, radius = 0.50f, alpha = 0.16f),
+)
+
+/**
+ * Пятна для широкой карточки каталога «Практики». Радиусы крупнее (в долях
+ * высоты, а карточка широкая) и три слоя — чтобы дыхание было отчётливо
+ * видно по всей ширине, как на плитках «Сейчас», а не только в углу.
+ */
+fun cardBlobs(group: PracticeGroup): List<Blob> = listOf(
+    Blob(color = group.tint(), cx = 0.86f, cy = 0.60f, radius = 1.30f, alpha = 0.58f),
+    Blob(color = group.tint(), cx = 0.10f, cy = 1.02f, radius = 0.98f, alpha = 0.30f),
+    Blob(color = group.tint(), cx = 0.42f, cy = 0.02f, radius = 0.58f, alpha = 0.14f),
 )
 
 /** Многослойный дышащий фон плеера: terracotta + smoky + green. */

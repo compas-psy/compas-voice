@@ -83,12 +83,7 @@ fun AftercareScreen(controller: PlayerController, onDone: (Int?) -> Unit) {
 
 @Composable
 private fun ComparisonCard(before: Int, after: Int) {
-    val delta = after - before
-    val caption = when {
-        delta <= -2 -> "чуть отпустило"
-        delta in -1..1 -> "побыл с этим"
-        else -> "бывает и так — это нормально"
-    }
+    val caption = reliefCaption(before, after)
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,5 +98,25 @@ private fun ComparisonCard(before: Int, after: Int) {
             Spacer(Modifier.width(14.dp))
             Text(caption, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
         }
+    }
+}
+
+/**
+ * Тёплая, не оценивающая фраза по стартовому уровню [before] и разнице [after]−[before].
+ * Без gamification и «правильных ответов»: одинаково бережно и когда отпустило, и
+ * когда стало ярче (иногда сначала обостряется — это тоже нормально).
+ */
+private fun reliefCaption(before: Int, after: Int): String {
+    val delta = after - before // <0 — стало легче
+    return when {
+        delta <= -4 -> "с сильного напряжения — заметно отпустило"
+        delta == -3 -> "стало ощутимо легче"
+        delta == -2 -> "немного отпустило"
+        delta == -1 -> "чуть мягче, чем было"
+        delta == 0 && before <= 3 -> "спокойно — и осталось спокойно"
+        delta == 0 && before >= 7 -> "остаёшься с этим — и это уже смелость"
+        delta == 0 -> "побыл с этим. Это тоже важно"
+        delta in 1..2 -> "иногда сначала становится ярче, прежде чем отпустит"
+        else -> "бывает и так. Ты заметил — и не отвернулся"
     }
 }

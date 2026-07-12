@@ -26,12 +26,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.data.Practice
 import ru.cmpas.voice.data.PracticeCatalog
+import ru.cmpas.voice.ui.components.AutoResizeText
 import ru.cmpas.voice.ui.components.BreathingBackground
 import ru.cmpas.voice.ui.components.Chip
 import ru.cmpas.voice.ui.components.Eyebrow
+import ru.cmpas.voice.ui.components.cardBlobs
 import ru.cmpas.voice.ui.components.familyCardColors
 import ru.cmpas.voice.ui.components.pressClickable
-import ru.cmpas.voice.ui.components.tileBlobs
 import ru.cmpas.voice.ui.theme.BgGraphite
 import ru.cmpas.voice.ui.theme.Surface
 import ru.cmpas.voice.ui.theme.TextPrimary
@@ -86,11 +87,16 @@ private fun PracticeCard(practice: Practice, onOpenPractice: (String) -> Unit) {
             .background(Brush.linearGradient(familyCardColors(practice.group)))
             .pressClickable { onOpenPractice(practice.id) },
     ) {
-        BreathingBackground(blobs = tileBlobs(practice.group), modifier = Modifier.fillMaxSize())
+        BreathingBackground(blobs = cardBlobs(practice.group), modifier = Modifier.fillMaxSize())
         Column(Modifier.padding(18.dp)) {
             Eyebrow(practice.group.title, color = TextTertiary)
             Spacer(Modifier.height(8.dp))
-            Text(practice.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            AutoResizeText(
+                practice.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+                maxLines = 2,
+            )
             Spacer(Modifier.height(6.dp))
             Text(practice.stateCaption, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             Spacer(Modifier.height(14.dp))
