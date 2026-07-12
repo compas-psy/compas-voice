@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import ru.cmpas.voice.audio.BackgroundAudio
 import ru.cmpas.voice.audio.ExoBackgroundAudio
+import ru.cmpas.voice.audio.ExoVoiceEngine
 import ru.cmpas.voice.audio.NoopBackgroundAudio
 import ru.cmpas.voice.audio.PlayerController
 import ru.cmpas.voice.data.FeatureFlags
@@ -19,7 +20,8 @@ class AppContainer(context: Context) {
     private val background: BackgroundAudio =
         if (FeatureFlags.softBackground) ExoBackgroundAudio(context.applicationContext, appScope, store)
         else NoopBackgroundAudio
-    val player = PlayerController(appScope, background)
+    private val voice = ExoVoiceEngine(context.applicationContext)
+    val player = PlayerController(appScope, background, voice)
 }
 
 class KompasApp : Application() {
@@ -28,6 +30,7 @@ class KompasApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        ru.cmpas.voice.data.PracticeCatalog.init(this)
         container = AppContainer(this)
     }
 }

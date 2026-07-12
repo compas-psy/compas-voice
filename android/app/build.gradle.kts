@@ -64,6 +64,14 @@ android {
         compose = true
         buildConfig = true // версия приложения в «О приложении» (ТЗ 1.1 §6)
     }
+
+    androidResources {
+        // .opus (голос) и .flac (бинаурал) — уже сжатые форматы. Держим их в APK
+        // без zip-компрессии, чтобы ExoPlayer/AssetDataSource мог открывать их
+        // по FileDescriptor и корректно перематывать (asset:///). .ogg покрыт
+        // дефолтным no-compress списком AAPT.
+        noCompress += listOf("opus", "flac")
+    }
 }
 
 dependencies {

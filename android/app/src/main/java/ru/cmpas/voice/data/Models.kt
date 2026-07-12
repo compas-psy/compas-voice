@@ -26,29 +26,39 @@ enum class PracticeGroup(val title: String) {
 
 /** Фон практики.
  *  VOICE — только голос; SOFT — мягкий фон (петля семьи);
- *  BINAURAL — стерео-фон + бинауральный слой (за флагом spatialAudio, OFF в MVP). */
+ *  BINAURAL — стерео-фон + бинауральный слой (за флагом spatialAudio). */
 enum class Background(val title: String) {
     VOICE("Только голос"),
     SOFT("Мягкий фон"),
-    BINAURAL("Объёмный"), // ТЗ 1.1 §3.1: в UI «Объёмный»/«Объём», не «бинауральный»
+    BINAURAL("Объёмный"), // ТЗ 1.1 §3.1: в UI «Объёмный»/«Объём» (за флагом spatialAudio)
 }
 
 /** Семья фоновых петель (пул вариаций одного фона, не выбор пользователю). */
 enum class SoundFamily { SLEEP, GROUNDING, TRANSITION, ANCHOR }
 
-/** Практика каталога. */
+/**
+ * Вариант длительности практики (из catalog.json). Цифра на кнопке — [label]
+ * (уже округлена вверх), [sec] — номинальная длительность, [voiceFile] — asset
+ * голоса, [tail] — нужен ли музыкальный хвост после голоса (опция «20»).
+ */
+data class DurationOption(
+    val label: String,
+    val sec: Int,
+    val voiceFile: String,   // asset-путь, напр. "voice/voice_sleep_...opus"
+    val tail: Boolean = false,
+)
+
+/** Практика каталога (строится из catalog.json — не хардкод). */
 data class Practice(
     val id: String,
-    val title: String,           // название-сцена, напр. «Ночь без внутренних совещаний»
-    val group: PracticeGroup,
-    val stateCaption: String,    // одна строка состояния, напр. «Голова продолжает работать дома»
-    val durations: List<Int> = listOf(5, 12, 20),
-    val soundFamily: SoundFamily = SoundFamily.GROUNDING, // семья фоновых петель
-    val isSleep: Boolean = false, // сонные практики: ночной режим + угасание, без итога
-    val isFree: Boolean = false,  // SOS-практика: открыта без подписки всегда (гейтинг §5)
-    /** Ресурс res/raw (0 = нет) или URL. В MVP аудио поставляется отдельно. */
-    val audioRawResId: Int = 0,
-    val audioUrl: String? = null,
+    val title: String,           // название-сцена
+    val group: PracticeGroup,    // группа отображения (цвет карточки)
+    val stateCaption: String,    // строка состояния
+    val soundFamily: SoundFamily, // музыкальный фон + поведение плеера
+    val durations: List<DurationOption>,
+    val isSleep: Boolean = false, // sleepFade: ночной режим + угасание, без итога
+    val isFree: Boolean = false,  // открыта без подписки
+    val isSos: Boolean = false,   // SOS — открыта всегда
 )
 
 /** Плитка на Доме → ведёт к конкретной практике. */
@@ -61,7 +71,7 @@ data class HomeTile(
 
 /** Конфигурация сессии из шита. */
 data class SessionConfig(
-    val duration: Int = 12,
+    val option: DurationOption,
     val background: Background = Background.VOICE,
 )
 

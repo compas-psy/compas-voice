@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "generated": "2026-07-12",
+  "note": "Длительности: практики с блоком ТШ имеют варианты (short=голос без ТШ, full=голос с ТШ, long20=голос+музыкальный хвост до 20 мин с fade out). Практики без ТШ — одна версия. Цифры на кнопках округлены строго вверх до целых минут. long20 доступна ТОЛЬКО при наличии музыкального фона семьи (иначе скрыть). sleepFade=true => сонное угасание, без экрана 'после'.",
+  "practices": [
+    {
+      "id": "night-meetings", "title": "Ночь без внутренних совещаний",
+      "group": "Сон", "state": "Не могу уснуть", "soundFamily": "sleep",
+      "isFree": false, "sleepFade": true,
+      "durations": [
+        { "label": "12", "sec": 660, "voiceFile": "voice/voice_sleep_night-meetings_short.opus", "tail": false },
+        { "label": "14", "sec": 786, "voiceFile": "voice/voice_sleep_night-meetings_full.opus", "tail": false },
+        { "label": "20", "sec": 1200, "voiceFile": "voice/voice_sleep_night-meetings_full.opus", "tail": true }
+      ]
+    },
+    {
+      "id": "woke-up-night", "title": "Проснулся среди ночи",
+      "group": "Сон", "state": "Проснулся в 3–4 часа", "soundFamily": "sleep",
+      "isFree": false, "sleepFade": true,
+      "durations": [ { "label": "8", "sec": 456, "voiceFile": "voice/voice_sleep_woke-up-night.opus", "tail": false } ]
+    },
+    {
+      "id": "anxious-dark", "title": "Тревожно в темноте",
+      "group": "Сон", "state": "Тревожно ночью", "soundFamily": "sleep",
+      "isFree": false, "sleepFade": true,
+      "durations": [ { "label": "10", "sec": 545, "voiceFile": "voice/voice_sleep_anxious-dark.opus", "tail": false } ]
+    },
+    {
+      "id": "workday-over", "title": "Рабочий день закончен",
+      "group": "Выход из дня", "state": "Работа не отпускает", "soundFamily": "transition",
+      "isFree": true, "sleepFade": false,
+      "durations": [
+        { "label": "10", "sec": 594, "voiceFile": "voice/voice_transition_workday-over_short.opus", "tail": false },
+        { "label": "13", "sec": 768, "voiceFile": "voice/voice_transition_workday-over_full.opus", "tail": false },
+        { "label": "20", "sec": 1200, "voiceFile": "voice/voice_transition_workday-over_full.opus", "tail": true }
+      ]
+    },
+    {
+      "id": "sunday-evening", "title": "Воскресенье, около семи",
+      "group": "Выход из дня", "state": "Тревога перед неделей", "soundFamily": "transition",
+      "isFree": false, "sleepFade": false,
+      "durations": [ { "label": "9", "sec": 511, "voiceFile": "voice/voice_transition_sunday-evening.opus", "tail": false } ]
+    },
+    {
+      "id": "not-now", "title": "Не нужно решать всё сейчас",
+      "group": "Тревога и перегрузка", "state": "Перегружен, острая срочность", "soundFamily": "grounding",
+      "isFree": true, "isSOS": true, "sleepFade": false,
+      "durations": [ { "label": "8", "sec": 435, "voiceFile": "voice/voice_grounding_not-now.opus", "tail": false } ]
+    },
+    {
+      "id": "looping-thoughts", "title": "Прокручиваю мысли",
+      "group": "Тревога и перегрузка", "state": "Руминация, мысли по кругу", "soundFamily": "grounding",
+      "isFree": false, "sleepFade": false,
+      "durations": [ { "label": "11", "sec": 602, "voiceFile": "voice/voice_grounding_looping-thoughts.opus", "tail": false } ]
+    },
+    {
+      "id": "hard-conversation", "title": "Перед сложным разговором",
+      "group": "Разговоры и решения", "state": "Предстоит трудный разговор", "soundFamily": "grounding",
+      "isFree": false, "sleepFade": false,
+      "durations": [ { "label": "10", "sec": 558, "voiceFile": "voice/voice_grounding_hard-conversation.opus", "tail": false } ]
+    },
+    {
+      "id": "inner-anchor", "title": "Внутренняя опора",
+      "group": "Опора", "state": "Потерял опору", "soundFamily": "anchor",
+      "isFree": false, "sleepFade": false,
+      "durations": [
+        { "label": "10", "sec": 594, "voiceFile": "voice/voice_anchor_inner-anchor_short.opus", "tail": false },
+        { "label": "13", "sec": 777, "voiceFile": "voice/voice_anchor_inner-anchor_full.opus", "tail": false },
+        { "label": "20", "sec": 1200, "voiceFile": "voice/voice_anchor_inner-anchor_full.opus", "tail": true }
+      ]
+    }
+  ],
+  "backgrounds": {
+    "note": "Генерируются отдельно по промптам. tail=true у длительности требует хвоста семьи sleep/transition/anchor.",
+    "sleep": { "loop": "background/bg_sleep_loop.opus", "tail": "background/bg_sleep_tail.opus" },
+    "grounding": { "loop": "background/bg_grounding_loop.opus" },
+    "transition": { "loop": "background/bg_transition_loop.opus", "tail": "background/bg_transition_tail.opus" },
+    "anchor": { "loop": "background/bg_anchor_loop.opus", "tail": "background/bg_anchor_tail.opus" }
+  },
+  "binaural": {
+    "note": "За флагом spatialAudio (OFF в MVP). Только наушники.",
+    "sleep_voice": "binaural/bb_sleep_theta_4p5.flac", "sleep_tail": "binaural/bb_sleep_tail_delta_2p5.flac",
+    "grounding": "binaural/bb_grounding_alpha_10.flac", "transition": "binaural/bb_transition_alpha_8.flac",
+    "anchor": "binaural/bb_anchor_theta_7.flac"
+  }
+}

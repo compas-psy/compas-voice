@@ -95,7 +95,7 @@ private fun PracticeCard(practice: Practice, onOpenPractice: (String) -> Unit) {
             Text(practice.stateCaption, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                practice.durations.forEach { d -> Chip("$d мин") }
+                practice.durations.forEach { d -> Chip("${d.label} мин") }
             }
         }
     }

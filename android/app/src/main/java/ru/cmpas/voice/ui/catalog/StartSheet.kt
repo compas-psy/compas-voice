@@ -56,7 +56,7 @@ fun StartSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val headphones = rememberHeadphonesConnected()
     var showExplainer by remember { mutableStateOf(false) }
-    var duration by remember { mutableIntStateOf(if (12 in practice.durations) 12 else practice.durations.first()) }
+    var option by remember { mutableStateOf(practice.durations.first()) }
     var background by remember { mutableStateOf(defaultBackground) }
     var checkIn by remember { mutableIntStateOf(5) }
     var touched by remember { mutableStateOf(false) }
@@ -81,17 +81,26 @@ fun StartSheet(
             Spacer(Modifier.height(22.dp))
             Text("Длительность", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
-            Segmented(
-                options = practice.durations,
-                selected = duration,
-                onSelect = { duration = it },
-                label = { "$it мин" },
-            )
+            if (practice.durations.size <= 1) {
+                // Одна версия — просто подпись, не селектор (ТЗ аудио v2 §1).
+                Text(
+                    "${practice.durations.first().label} мин",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary,
+                )
+            } else {
+                Segmented(
+                    options = practice.durations,
+                    selected = option,
+                    onSelect = { option = it },
+                    label = { "${it.label} мин" },
+                )
+            }
 
             Spacer(Modifier.height(18.dp))
             Text("Фон", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
             Spacer(Modifier.height(8.dp))
-            // «Бинауральный» появляется только за флагом spatialAudio (OFF в MVP).
+            // «Объёмный» появляется только за флагом spatialAudio.
             val bgOptions = if (FeatureFlags.spatialAudio) {
                 listOf(Background.VOICE, Background.SOFT, Background.BINAURAL)
             } else {
@@ -123,7 +132,7 @@ fun StartSheet(
 
             Spacer(Modifier.height(24.dp))
             PrimaryButton("Начать") {
-                onStart(SessionConfig(duration, background), if (touched && !skipped) checkIn else null)
+                onStart(SessionConfig(option, background), if (touched && !skipped) checkIn else null)
             }
 
             if (!skipped) {
