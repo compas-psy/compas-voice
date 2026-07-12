@@ -4,21 +4,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import ru.cmpas.voice.R
 
 /**
- * Байлайн «ЭКОСИСТЕМА КОМПАС» (ТЗ §0.1) — принадлежность к КОМПАС не в названии,
- * а через знак-дерево и эту подпись. Версальный lockup, letter-spacing .22em,
- * text/tertiary #6B7280. Появляется на сплэше, последнем экране онбординга и в
- * «О приложении» профиля — не на основных экранах.
+ * Байлайн-лок «NAME · ЭКОСИСТЕМА КОМПАС» (ТЗ 1.1 §1). Имя берётся из
+ * `R.string.app_name` — переименование приложения = правка одной строки.
+ * Версальный lockup, letter-spacing .22em, text/tertiary #6B7280. Появляется на
+ * сплэше, последнем экране онбординга и в «О приложении» профиля.
  */
 @Composable
 fun Byline(modifier: Modifier = Modifier) {
+    val name = stringResource(R.string.app_name)
+    val ecosystem = stringResource(R.string.ecosystem)
     Text(
-        text = "ЭКОСИСТЕМА КОМПАС",
+        text = "$name · $ecosystem",
         style = TextStyle(
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,

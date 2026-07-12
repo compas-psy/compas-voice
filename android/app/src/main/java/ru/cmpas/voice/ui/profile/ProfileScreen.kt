@@ -147,14 +147,12 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                 SettingRow(title = "Очистить мои данные", value = "", onClick = { showClearDialog = true })
             }
 
-            // «О приложении» — вордмарк + байлайн принадлежности к экосистеме.
+            // «О приложении» — байлайн-лок «NAME · ЭКОСИСТЕМА КОМПАС» (имя из ресурса).
             Spacer(Modifier.height(30.dp))
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Тише", style = MaterialTheme.typography.titleMedium, color = TextSecondary)
-                Spacer(Modifier.height(6.dp))
                 Byline()
             }
         }

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Тише</string>
-    <string name="byline">экосистема КОМПАС</string>
+    <!-- ЕДИНСТВЕННАЯ точка имени приложения (ТЗ 1.1 §1). Меняется здесь —
+         подтягивается в лаунчер-лейбл, «О приложении» и байлайн-лок. -->
+    <string name="app_name">ТИШЬ</string>
+    <string name="ecosystem">ЭКОСИСТЕМА КОМПАС</string>
 </resources>
