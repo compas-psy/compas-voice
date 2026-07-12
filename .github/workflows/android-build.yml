@@ -93,9 +93,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.apk.outputs.version }}-b${{ github.run_number }}
-          name: "КОМПАС · голосовые практики ${{ steps.apk.outputs.version }} (#${{ github.run_number }})"
+          name: "МОМЕНТЫ · голосовые практики ${{ steps.apk.outputs.version }} (#${{ github.run_number }})"
           body: |
-            ## КОМПАС — голосовые практики (Android)
+            ## МОМЕНТЫ — голосовые практики (Android)
             Debug-сборка. Скачайте APK ниже и установите на телефон.
           files: kompas-voice-*.apk
           prerelease: true

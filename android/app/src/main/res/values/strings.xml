@@ -2,6 +2,6 @@
 <resources>
     <!-- ЕДИНСТВЕННАЯ точка имени приложения (ТЗ 1.1 §1). Меняется здесь —
          подтягивается в лаунчер-лейбл, «О приложении» и байлайн-лок. -->
-    <string name="app_name">ТИШЬ</string>
+    <string name="app_name">МОМЕНТЫ</string>
     <string name="ecosystem">ЭКОСИСТЕМА КОМПАС</string>
 </resources>
