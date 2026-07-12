@@ -48,6 +48,13 @@ jobs:
           unzip -q /tmp/gradle.zip -d /tmp
           /tmp/gradle-8.9/bin/gradle --version
 
+      - name: Unit tests
+        working-directory: android
+        shell: bash
+        run: |
+          set -o pipefail
+          /tmp/gradle-8.9/bin/gradle testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee ../android-tests.log
+
       - name: Build Debug APK
         working-directory: android
         shell: bash

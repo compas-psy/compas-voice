@@ -62,6 +62,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true // версия приложения в «О приложении» (ТЗ 1.1 §6)
     }
 }
 
@@ -93,4 +94,6 @@ dependencies {
 
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
+
+    testImplementation("junit:junit:4.13.2")
 }

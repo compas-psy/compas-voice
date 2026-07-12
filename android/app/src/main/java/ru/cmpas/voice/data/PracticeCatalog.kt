@@ -1,83 +1,51 @@
 package ru.cmpas.voice.data
 
 /**
- * Каталог практик и маппинг плиток Дома → практики (см. docs/PRODUCT.md §10).
- * Вынесен в данные, чтобы менять без правки экранов. Аудио поставляется
- * отдельно — здесь пока метаданные (audioRawResId=0, audioUrl=null).
+ * Каталог практик и маппинг плиток Дома → практики.
+ * Семья (`soundFamily`) выводится из группы состояния и задаёт КАСКАД поведения:
+ * оттенок и реакция фона плеера, сонное угасание vs финальный экран, звуковая
+ * семья, ночной режим (ТЗ 1.1 §3.5). Эталонная таблица из 9 практик.
+ * Аудио голоса поставляется отдельно — здесь метаданные.
  */
 object PracticeCatalog {
 
-    /** Семья фоновых петель по группе состояния (см. инструкцию аудио §2). */
+    /** Семья фоновых петель/поведения по группе состояния (ТЗ §3.5). */
     fun familyOf(group: PracticeGroup): SoundFamily = when (group) {
         PracticeGroup.SLEEP -> SoundFamily.SLEEP
         PracticeGroup.EXIT_DAY -> SoundFamily.TRANSITION
         PracticeGroup.ANXIETY -> SoundFamily.GROUNDING
-        PracticeGroup.TALKS -> SoundFamily.GROUNDING
+        PracticeGroup.TALKS -> SoundFamily.GROUNDING   // Разговоры: показ ochre, звук grounding
         PracticeGroup.SUPPORT -> SoundFamily.ANCHOR
     }
 
     val practices: List<Practice> = listOf(
-        // ── Сон ──────────────────────────────────────────────
-        Practice(
-            id = "sleep_descent",
-            title = "Медленное погружение",
-            group = PracticeGroup.SLEEP,
-            stateCaption = "Не получается уснуть",
-            isSleep = true,
-        ),
-        Practice(
-            id = "sleep_return",
-            title = "Вернуться в сон",
-            group = PracticeGroup.SLEEP,
-            stateCaption = "Проснулся среди ночи",
-            isSleep = true,
-        ),
-        // ── Выход из дня ─────────────────────────────────────
-        Practice(
-            id = "exit_meetings",
-            title = "Ночь без внутренних совещаний",
-            group = PracticeGroup.EXIT_DAY,
-            stateCaption = "Голова продолжает работать дома",
-        ),
-        Practice(
-            id = "exit_slow",
-            title = "Сбросить обороты",
-            group = PracticeGroup.EXIT_DAY,
-            stateCaption = "Слишком много всего за день",
-        ),
-        // ── Тревога и перегрузка ─────────────────────────────
-        Practice(
-            id = "anx_carousel",
-            title = "Остановить карусель мыслей",
-            group = PracticeGroup.ANXIETY,
-            stateCaption = "Прокручиваю одно и то же",
-        ),
-        Practice(
-            id = "anx_dark",
-            title = "Тихо в темноте",
-            group = PracticeGroup.ANXIETY,
-            stateCaption = "Тревожно в темноте",
-        ),
-        // ── Разговоры и решения ──────────────────────────────
-        Practice(
-            id = "talk_before",
-            title = "Перед трудным разговором",
-            group = PracticeGroup.TALKS,
-            stateCaption = "Нужно поговорить, но тяжело",
-        ),
-        // ── Опора ────────────────────────────────────────────
-        Practice(
-            id = "support_ground",
-            title = "Найти землю под ногами",
-            group = PracticeGroup.SUPPORT,
-            stateCaption = "Как будто потерял опору",
-        ),
-        Practice(
-            id = "support_start",
-            title = "Вернуть опору",
-            group = PracticeGroup.SUPPORT,
-            stateCaption = "Не знаю, за что взяться",
-        ),
+        // ── Сон (family sleep: угасание, ночной режим, indigo, НЕТ «после») ──
+        Practice("sleep_meetings", "Ночь без внутренних совещаний", PracticeGroup.SLEEP,
+            "Голова продолжает работать дома", isSleep = true),
+        Practice("sleep_wake", "Проснулся среди ночи", PracticeGroup.SLEEP,
+            "Проснулся и не выходит заснуть", isSleep = true),
+        Practice("sleep_dark", "Тревожно в темноте", PracticeGroup.SLEEP,
+            "Тревожно засыпать в темноте", isSleep = true),
+
+        // ── Выход из дня (family transition) ──
+        Practice("exit_workday", "Рабочий день закончен", PracticeGroup.EXIT_DAY,
+            "Работа не отпускает вечером"),
+        Practice("exit_sunday", "Воскресенье, около семи", PracticeGroup.EXIT_DAY,
+            "Вечер перед новой неделей"),
+
+        // ── Тревога и перегрузка (family grounding) ──
+        Practice("calm_sos", "Не нужно решать всё сейчас", PracticeGroup.ANXIETY,
+            "Слишком много всего", durations = listOf(5, 12, 20), isFree = true), // SOS-слот
+        Practice("calm_spin", "Прокручиваю мысли", PracticeGroup.ANXIETY,
+            "Мысли крутятся по кругу"),
+
+        // ── Разговоры и решения (показ ochre, звук grounding) ──
+        Practice("talk_before", "Перед сложным разговором", PracticeGroup.TALKS,
+            "Нужно поговорить, но тяжело"),
+
+        // ── Опора (family anchor) ──
+        Practice("anchor_inner", "Внутренняя опора", PracticeGroup.SUPPORT,
+            "Как будто потерял опору"),
     ).map { it.copy(soundFamily = familyOf(it.group)) }
 
     private val byId = practices.associateBy { it.id }
@@ -92,24 +60,24 @@ object PracticeCatalog {
 
     // ── Плитки Дома по времени суток ────────────────────────
     val dayTiles = listOf(
-        HomeTile("слишком много всего", "Перегружен(а)", "exit_slow"),
-        HomeTile("нет начала", "Не знаю, за что взяться", "support_start"),
+        HomeTile("слишком много всего", "Перегружен(а)", "calm_sos"),
+        HomeTile("нет начала", "Не знаю, за что взяться", "anchor_inner"),
         HomeTile("предстоит", "Трудный разговор", "talk_before"),
-        HomeTile("как будто без почвы", "Потерял опору", "support_ground"),
+        HomeTile("как будто без почвы", "Потерял опору", "anchor_inner"),
     )
 
     val eveningTiles = listOf(
-        HomeTile("мысли про работу", "Работа не отпускает", "exit_meetings"),
-        HomeTile("по кругу", "Прокручиваю мысли", "anx_carousel"),
-        HomeTile("не выходит", "Не могу уснуть", "sleep_descent"),
-        HomeTile("слишком много всего", "Перегружен(а)", "exit_slow"),
+        HomeTile("мысли про работу", "Работа не отпускает", "exit_workday"),
+        HomeTile("по кругу", "Прокручиваю мысли", "calm_spin"),
+        HomeTile("не выходит", "Не могу уснуть", "sleep_meetings"),
+        HomeTile("слишком много всего", "Перегружен(а)", "calm_sos"),
         HomeTile("предстоит", "Трудный разговор", "talk_before", wide = true),
     )
 
     val nightTiles = listOf(
-        HomeTile("", "Не могу уснуть", "sleep_descent"),
-        HomeTile("", "Проснулся среди ночи", "sleep_return"),
-        HomeTile("", "Тревожно в темноте", "anx_dark"),
+        HomeTile("", "Не могу уснуть", "sleep_meetings"),
+        HomeTile("", "Проснулся среди ночи", "sleep_wake"),
+        HomeTile("", "Тревожно в темноте", "sleep_dark"),
     )
 
     fun tilesFor(time: TimeOfDay): List<HomeTile> = when (time) {

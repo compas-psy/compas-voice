@@ -37,6 +37,7 @@ import ru.cmpas.voice.ui.components.Eyebrow
 import ru.cmpas.voice.ui.components.PrimaryButton
 import ru.cmpas.voice.ui.components.Segmented
 import ru.cmpas.voice.ui.components.TextLink
+import ru.cmpas.voice.ui.components.rememberHeadphonesConnected
 import ru.cmpas.voice.ui.theme.SurfaceAlt
 import ru.cmpas.voice.ui.theme.TextPrimary
 import ru.cmpas.voice.ui.theme.TextSecondary
@@ -47,10 +48,14 @@ import ru.cmpas.voice.ui.theme.TextTertiary
 fun StartSheet(
     practice: Practice,
     defaultBackground: Background,
+    explainerSeen: Boolean,
+    onMarkExplainerSeen: () -> Unit,
     onDismiss: () -> Unit,
     onStart: (SessionConfig, Int?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val headphones = rememberHeadphonesConnected()
+    var showExplainer by remember { mutableStateOf(false) }
     var duration by remember { mutableIntStateOf(if (12 in practice.durations) 12 else practice.durations.first()) }
     var background by remember { mutableStateOf(defaultBackground) }
     var checkIn by remember { mutableIntStateOf(5) }
@@ -95,25 +100,16 @@ fun StartSheet(
             Segmented(
                 options = bgOptions,
                 selected = background,
-                onSelect = { background = it },
+                onSelect = { sel ->
+                    background = sel
+                    // 7a — объяснитель при первом выборе «Объёмного».
+                    if (sel == Background.BINAURAL && !explainerSeen) showExplainer = true
+                },
                 label = { it.title },
             )
             if (background == Background.BINAURAL) {
                 Spacer(Modifier.height(10.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.Headphones,
-                        contentDescription = null,
-                        tint = TextTertiary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Мягкий стереозвук под голосом. Нужны наушники — в динамиках эффекта нет.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextTertiary,
-                    )
-                }
+                BinauralStatusPlaque(headphones) // 7b/7c по маршруту наушников
             }
 
             if (!skipped) {
@@ -141,5 +137,16 @@ fun StartSheet(
                 Spacer(Modifier.height(8.dp))
             }
         }
+    }
+
+    if (showExplainer) {
+        BinauralExplainerDialog(
+            onOk = { onMarkExplainerSeen(); showExplainer = false },
+            onNotNow = {
+                onMarkExplainerSeen()
+                background = Background.SOFT
+                showExplainer = false
+            },
+        )
     }
 }

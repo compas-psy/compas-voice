@@ -52,8 +52,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import ru.cmpas.voice.audio.PlayerController
 import ru.cmpas.voice.data.Background
@@ -65,12 +76,14 @@ import ru.cmpas.voice.ui.components.playerBlobs
 import ru.cmpas.voice.ui.theme.BgFade
 import ru.cmpas.voice.ui.theme.BgNight
 import ru.cmpas.voice.ui.theme.BgPlayerDim
+import ru.cmpas.voice.ui.theme.SurfaceActive
 import ru.cmpas.voice.ui.theme.TerracottaMuted
 import ru.cmpas.voice.ui.theme.TextPrimary
 import ru.cmpas.voice.ui.theme.TextPrimaryNight
 import ru.cmpas.voice.ui.theme.TextSecondary
 import ru.cmpas.voice.ui.theme.TextTertiary
 import ru.cmpas.voice.ui.theme.WhiteAlpha08
+import kotlin.math.roundToInt
 
 private fun Context.findActivity(): Activity? {
     var ctx = this
@@ -233,34 +246,16 @@ fun PlayerScreen(
                     Icons.Outlined.GraphicEq,
                     when (state.background) {
                         Background.SOFT -> "Мягкий фон"
-                        Background.BINAURAL -> "Бинаур."
+                        Background.BINAURAL -> "Объём"
                         else -> "Голос"
                     },
                 )
             }
 
-            // Прогресс.
-            Spacer(Modifier.height(10.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .clip(RoundedCornerShape(1.dp))
-                    .background(WhiteAlpha08),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(state.fraction)
-                        .background(TerracottaMuted)
-                )
-            }
+            // Прогресс + перемотка (зона 56dp, исключена из тап-паузы, ТЗ §4).
             Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(fmt(state.positionMs), style = MaterialTheme.typography.bodySmall, color = TextTertiary)
-                Text("−" + fmt((state.durationMs - state.positionMs).coerceAtLeast(0)), style = MaterialTheme.typography.bodySmall, color = TextTertiary)
-            }
-            Spacer(Modifier.height(16.dp))
+            ProgressZone(state = state, controller = controller)
+            Spacer(Modifier.height(10.dp))
         }
     }
 
@@ -338,5 +333,87 @@ private fun ControlButton(
         }
         Spacer(Modifier.height(6.dp))
         Text(label, style = MaterialTheme.typography.bodySmall, color = TextTertiary, textAlign = TextAlign.Center)
+    }
+}
+
+/**
+ * Зона прогресса 56dp (ТЗ 1.1 §4): исключена из тап-паузы (жест здесь потребляет
+ * события). Тап/драг = перемотка; при захвате — тактильная отдача, линия толще
+ * (4px) и бабл со временем над пальцем; таймлайн держится, отпускание — commit.
+ */
+@Composable
+private fun ProgressZone(state: PlayerController.State, controller: PlayerController) {
+    val hf = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubX by remember { mutableFloatStateOf(0f) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .pointerInput(state.durationMs) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    hf.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val w = size.width.toFloat().coerceAtLeast(1f)
+                    scrubbing = true
+                    controller.beginScrub()
+                    scrubX = down.position.x.coerceIn(0f, w)
+                    controller.scrubTo(scrubX / w)
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        val ch = ev.changes.firstOrNull() ?: break
+                        if (!ch.pressed) { ch.consume(); break }
+                        scrubX = ch.position.x.coerceIn(0f, w)
+                        controller.scrubTo(scrubX / w)
+                        ch.consume()
+                    }
+                    scrubbing = false
+                    controller.endScrub()
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (scrubbing) 4.dp else 2.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(WhiteAlpha08),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(state.fraction)
+                        .background(TerracottaMuted),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(fmt(state.positionMs), style = MaterialTheme.typography.bodySmall, color = TextTertiary)
+                Text(
+                    "−" + fmt((state.durationMs - state.positionMs).coerceAtLeast(0)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextTertiary,
+                )
+            }
+        }
+        if (scrubbing) {
+            val halfPx = with(density) { 26.dp.toPx() }
+            val abovePx = with(density) { 30.dp.toPx() }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset { IntOffset((scrubX - halfPx).roundToInt(), -abovePx.roundToInt()) }
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SurfaceActive)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(fmt(state.positionMs), style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+            }
+        }
     }
 }

@@ -35,6 +35,7 @@ class LocalStore(context: Context) {
         val subscription = stringPreferencesKey("subscription_status")
         val firstPracticeDone = booleanPreferencesKey("first_practice_done")
         val paywallSeen = booleanPreferencesKey("paywall_seen")
+        val binauralExplainerSeen = booleanPreferencesKey("binaural_explainer_seen")
         val history = stringPreferencesKey("history_json")
     }
 
@@ -81,6 +82,13 @@ class LocalStore(context: Context) {
 
     suspend fun markPaywallSeen() {
         ds.edit { it[Keys.paywallSeen] = true }
+    }
+
+    // ── Объяснитель «Объёмного» фона (7a) — один раз ────────
+    val binauralExplainerSeen: Flow<Boolean> = prefs.map { it[Keys.binauralExplainerSeen] ?: false }
+
+    suspend fun markBinauralExplainerSeen() {
+        ds.edit { it[Keys.binauralExplainerSeen] = true }
     }
 
     // ── История / чек-ины ───────────────────────────────────

@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.launch
 import ru.cmpas.voice.AppContainer
 import ru.cmpas.voice.data.Background
 import ru.cmpas.voice.data.Practice
@@ -38,9 +40,11 @@ fun MainScreen(
     onStartPractice: (Practice, SessionConfig, Int?) -> Unit,
     onOpenPaywall: () -> Unit,
 ) {
+    val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var sheetPracticeId by remember { mutableStateOf<String?>(null) }
     val settings by container.store.settings.collectAsState(initial = Settings())
+    val explainerSeen by container.store.binauralExplainerSeen.collectAsState(initial = true)
 
     // Время суток пересчитывается при возврате в приложение (docs/PRODUCT.md §3).
     var time by remember { mutableStateOf(currentTimeOfDay()) }
@@ -74,6 +78,8 @@ fun MainScreen(
         StartSheet(
             practice = sheetPractice,
             defaultBackground = settings.defaultBackground,
+            explainerSeen = explainerSeen,
+            onMarkExplainerSeen = { scope.launch { container.store.markBinauralExplainerSeen() } },
             onDismiss = { sheetPracticeId = null },
             onStart = { config, checkIn ->
                 sheetPracticeId = null

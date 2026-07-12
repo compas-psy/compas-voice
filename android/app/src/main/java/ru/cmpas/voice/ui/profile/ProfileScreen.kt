@@ -1,5 +1,8 @@
 package ru.cmpas.voice.ui.profile
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,9 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.cmpas.voice.AppContainer
+import ru.cmpas.voice.BuildConfig
 import ru.cmpas.voice.ui.components.Byline
 import ru.cmpas.voice.ui.components.LogoMark
 import ru.cmpas.voice.ui.components.pressClickable
@@ -58,6 +63,7 @@ import ru.cmpas.voice.ui.theme.TextTertiary
 @Composable
 fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val settings by container.store.settings.collectAsState(initial = Settings())
     val history by container.store.history.collectAsState(initial = emptyList())
     var showClearDialog by remember { mutableStateOf(false) }
@@ -147,13 +153,27 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                 SettingRow(title = "Очистить мои данные", value = "", onClick = { showClearDialog = true })
             }
 
-            // «О приложении» — байлайн-лок «NAME · ЭКОСИСТЕМА КОМПАС» (имя из ресурса).
-            Spacer(Modifier.height(30.dp))
+            // «О приложении» (ТЗ 1.1 §6): версия, политика, поддержка + байлайн.
+            Spacer(Modifier.height(22.dp))
+            Text("О приложении", style = MaterialTheme.typography.titleLarge, color = TextPrimary)
+            Spacer(Modifier.height(12.dp))
+            SettingsCard {
+                SettingRow(title = "Политика конфиденциальности", value = "", onClick = { openUrl(context, PRIVACY_URL) })
+                Divider()
+                SettingRow(title = "Поддержка", value = "", onClick = { openUrl(context, "mailto:$SUPPORT_EMAIL") })
+            }
+            Spacer(Modifier.height(20.dp))
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Byline()
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Версия ${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextTertiary,
+                )
             }
         }
     }
@@ -340,6 +360,17 @@ private fun nextBackground(current: Background): Background {
     }
     val i = options.indexOf(current).let { if (it < 0) 0 else it }
     return options[(i + 1) % options.size]
+}
+
+private const val PRIVACY_URL = "https://cmpas.ru/tish/privacy" // хостит владелец
+private const val SUPPORT_EMAIL = "support@cmpas.ru"
+
+private fun openUrl(context: Context, url: String) {
+    runCatching {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
 }
 
 private fun relativeDate(epochMs: Long, nowMs: Long): String {

@@ -30,7 +30,7 @@ enum class PracticeGroup(val title: String) {
 enum class Background(val title: String) {
     VOICE("Только голос"),
     SOFT("Мягкий фон"),
-    BINAURAL("Бинауральный"),
+    BINAURAL("Объёмный"), // ТЗ 1.1 §3.1: в UI «Объёмный»/«Объём», не «бинауральный»
 }
 
 /** Семья фоновых петель (пул вариаций одного фона, не выбор пользователю). */
@@ -45,6 +45,7 @@ data class Practice(
     val durations: List<Int> = listOf(5, 12, 20),
     val soundFamily: SoundFamily = SoundFamily.GROUNDING, // семья фоновых петель
     val isSleep: Boolean = false, // сонные практики: ночной режим + угасание, без итога
+    val isFree: Boolean = false,  // SOS-практика: открыта без подписки всегда (гейтинг §5)
     /** Ресурс res/raw (0 = нет) или URL. В MVP аудио поставляется отдельно. */
     val audioRawResId: Int = 0,
     val audioUrl: String? = null,

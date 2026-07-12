@@ -42,6 +42,7 @@ class PlayerController(
         val sleepTimerMin: Int? = null,
         val sleepRemainingMs: Long? = null,
         val finished: Boolean = false,
+        val scrubbing: Boolean = false,
         val startedAtEpochMs: Long = 0L,
     ) {
         val isActive: Boolean get() = practiceId != null
@@ -86,6 +87,7 @@ class PlayerController(
                 s.phase == PlayerPhase.NIGHT ||
                 s.phase == PlayerPhase.FADING
             if (!playing) continue
+            if (s.scrubbing) continue // во время перемотки таймлайн держим
 
             var pos = s.positionMs + tickMs
             var sleepRemaining = s.sleepRemainingMs?.let { it - tickMs }
@@ -146,6 +148,22 @@ class PlayerController(
             if (!s.isActive) return@update s
             s.copy(positionMs = (s.positionMs - 15_000L).coerceAtLeast(0L))
         }
+    }
+
+    // ── Перемотка по полосе прогресса (ТЗ 1.1 §4) ───────────
+    fun beginScrub() {
+        _state.update { if (it.isActive && !it.finished) it.copy(scrubbing = true) else it }
+    }
+
+    fun scrubTo(fraction: Float) {
+        _state.update { s ->
+            if (!s.isActive || s.durationMs <= 0L) return@update s
+            s.copy(positionMs = (fraction.coerceIn(0f, 1f) * s.durationMs).toLong())
+        }
+    }
+
+    fun endScrub() {
+        _state.update { it.copy(scrubbing = false) }
     }
 
     fun setSleepTimer(minutes: Int?) {
