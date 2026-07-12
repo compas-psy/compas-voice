@@ -84,8 +84,8 @@ fun BreathingBackground(
     val dx = if (running) driftX else 0f
     val dy = if (running) driftY else 0f
 
-    val scale = lerp(0.78f, 1.14f, phase)
-    val alphaMul = if (running) lerp(0.45f, 0.85f, phase) else 0.30f
+    val scale = lerp(0.70f, 1.26f, phase)
+    val alphaMul = if (running) lerp(0.38f, 1.0f, phase) else 0.30f
 
     Canvas(modifier = modifier) {
         val minDim = min(size.width, size.height)

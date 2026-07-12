@@ -1,6 +1,7 @@
 package ru.cmpas.voice.ui.components
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import ru.cmpas.voice.data.PracticeGroup
 import ru.cmpas.voice.ui.theme.Indigo
 import ru.cmpas.voice.ui.theme.LogoGreen
@@ -8,6 +9,10 @@ import ru.cmpas.voice.ui.theme.Ochre
 import ru.cmpas.voice.ui.theme.Smoky
 import ru.cmpas.voice.ui.theme.Teal
 import ru.cmpas.voice.ui.theme.Terracotta
+
+/** Осветлить оттенок к белому — чтобы дышащее пятно читалось поверх тёмного
+ *  тонированного градиента-подложки карточки (иначе пятно сливается с фоном). */
+private fun Color.lift(f: Float): Color = lerp(this, Color.White, f)
 
 /**
  * Оттенок абстрактного пятна по состоянию (ТЗ § Фоны практик):
@@ -40,8 +45,8 @@ fun familyCardColors(group: PracticeGroup): List<Color> = when (group) {
  * угла + лёгкая противоположная подсветка, чтобы оттенок семейства читался.
  */
 fun tileBlobs(group: PracticeGroup): List<Blob> = listOf(
-    Blob(color = group.tint(), cx = 0.84f, cy = 0.88f, radius = 0.72f, alpha = 0.78f),
-    Blob(color = group.tint(), cx = 0.18f, cy = 0.14f, radius = 0.50f, alpha = 0.16f),
+    Blob(color = group.tint().lift(0.22f), cx = 0.82f, cy = 0.86f, radius = 0.80f, alpha = 0.95f),
+    Blob(color = group.tint().lift(0.35f), cx = 0.20f, cy = 0.16f, radius = 0.54f, alpha = 0.30f),
 )
 
 /**
@@ -50,9 +55,9 @@ fun tileBlobs(group: PracticeGroup): List<Blob> = listOf(
  * видно по всей ширине, как на плитках «Сейчас», а не только в углу.
  */
 fun cardBlobs(group: PracticeGroup): List<Blob> = listOf(
-    Blob(color = group.tint(), cx = 0.86f, cy = 0.60f, radius = 1.30f, alpha = 0.58f),
-    Blob(color = group.tint(), cx = 0.10f, cy = 1.02f, radius = 0.98f, alpha = 0.30f),
-    Blob(color = group.tint(), cx = 0.42f, cy = 0.02f, radius = 0.58f, alpha = 0.14f),
+    Blob(color = group.tint().lift(0.24f), cx = 0.80f, cy = 0.58f, radius = 0.92f, alpha = 0.92f),
+    Blob(color = group.tint().lift(0.32f), cx = 0.16f, cy = 0.96f, radius = 0.68f, alpha = 0.42f),
+    Blob(color = group.tint().lift(0.42f), cx = 0.46f, cy = 0.06f, radius = 0.46f, alpha = 0.22f),
 )
 
 /** Многослойный дышащий фон плеера: terracotta + smoky + green. */

@@ -6,11 +6,9 @@
          Если все практики bundled в res/raw — можно убрать (см. PRIVACY-DPO §3). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Опционально: вечернее напоминание (Android 13+). Запрашивается в
-         контексте при включении напоминаний; отказ не ломает приложение.
-         Фоновое медиа-воспроизведение (FOREGROUND_SERVICE_MEDIA_PLAYBACK)
-         добавляется вместе с Media3-плеером — см. docs/ROADMAP.md. -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- POST_NOTIFICATIONS убран: напоминания пока не реализованы (нет
+         планировщика), а просить разрешение, которое не используется — против
+         правил Play и 152-ФЗ. Вернём вместе с реальными напоминаниями. -->
 
     <application
         android:name=".KompasApp"

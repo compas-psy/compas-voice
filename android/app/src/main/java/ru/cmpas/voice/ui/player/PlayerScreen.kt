@@ -3,6 +3,7 @@ package ru.cmpas.voice.ui.player
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.view.WindowManager
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -67,9 +68,11 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import ru.cmpas.voice.appContainer
 import ru.cmpas.voice.audio.PlayerController
 import ru.cmpas.voice.data.Background
 import ru.cmpas.voice.data.PlayerPhase
+import ru.cmpas.voice.data.Settings
 import ru.cmpas.voice.ui.components.BreathingBackground
 import ru.cmpas.voice.ui.components.Eyebrow
 import ru.cmpas.voice.ui.components.pressClickable
@@ -134,8 +137,16 @@ fun PlayerScreen(
     }
     val uiAlpha by animateFloatAsState(fadeAlpha, tween(1200), label = "uiFade")
 
-    // Автопонижение яркости на ночных/сонных практиках; восстановление при выходе.
+    // «Не выключать экран» (настройка в разделе «Я»): дышащий фон не гаснет.
     val context = LocalContext.current
+    val settings by context.appContainer.store.settings.collectAsState(initial = Settings())
+    DisposableEffect(settings.keepScreenOn) {
+        val window = context.findActivity()?.window
+        if (settings.keepScreenOn) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
+    // Автопонижение яркости на ночных/сонных практиках; восстановление при выходе.
     DisposableEffect(night) {
         val window = context.findActivity()?.window
         val original = window?.attributes?.screenBrightness

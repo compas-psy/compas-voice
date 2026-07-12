@@ -59,7 +59,6 @@ fun StartSheet(
     var option by remember { mutableStateOf(practice.durations.first()) }
     var background by remember { mutableStateOf(defaultBackground) }
     var checkIn by remember { mutableIntStateOf(5) }
-    var touched by remember { mutableStateOf(false) }
     var skipped by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -126,20 +125,22 @@ fun StartSheet(
                 CheckInSlider(
                     question = "Насколько сейчас напряжённо?",
                     value = checkIn,
-                    onValueChange = { checkIn = it; touched = true },
+                    onValueChange = { checkIn = it },
                 )
             }
 
             Spacer(Modifier.height(24.dp))
             PrimaryButton("Начать") {
-                onStart(SessionConfig(option, background), if (touched && !skipped) checkIn else null)
+                // Чек-ин записываем по умолчанию (значение на слайдере); null — только
+                // если пользователь явно нажал «Пропустить». Иначе before всегда пуст.
+                onStart(SessionConfig(option, background), if (skipped) null else checkIn)
             }
 
             if (!skipped) {
                 Spacer(Modifier.height(6.dp))
                 TextLink(
                     "Пропустить чек-ин",
-                    onClick = { skipped = true; touched = false },
+                    onClick = { skipped = true },
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
             } else {

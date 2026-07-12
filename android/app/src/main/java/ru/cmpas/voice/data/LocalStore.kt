@@ -31,6 +31,7 @@ class LocalStore(context: Context) {
         val onboarding = booleanPreferencesKey("onboarding_completed")
         val selectedState = stringPreferencesKey("selected_state")
         val defaultBackground = stringPreferencesKey("default_background")
+        val keepScreenOn = booleanPreferencesKey("keep_screen_on")
         val remindersEnabled = booleanPreferencesKey("reminders_enabled")
         val subscription = stringPreferencesKey("subscription_status")
         val firstPracticeDone = booleanPreferencesKey("first_practice_done")
@@ -57,6 +58,7 @@ class LocalStore(context: Context) {
             defaultBackground = p[Keys.defaultBackground]
                 ?.let { runCatching { Background.valueOf(it) }.getOrNull() }
                 ?: Background.VOICE,
+            keepScreenOn = p[Keys.keepScreenOn] ?: false,
             remindersEnabled = p[Keys.remindersEnabled] ?: false,
             subscriptionStatus = p[Keys.subscription]
                 ?.let { runCatching { SubscriptionStatus.valueOf(it) }.getOrNull() }
@@ -66,6 +68,10 @@ class LocalStore(context: Context) {
 
     suspend fun setDefaultBackground(background: Background) {
         ds.edit { it[Keys.defaultBackground] = background.name }
+    }
+
+    suspend fun setKeepScreenOn(enabled: Boolean) {
+        ds.edit { it[Keys.keepScreenOn] = enabled }
     }
 
     suspend fun setRemindersEnabled(enabled: Boolean) {

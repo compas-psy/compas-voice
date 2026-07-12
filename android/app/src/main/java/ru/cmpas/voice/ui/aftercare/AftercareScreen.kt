@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -43,7 +42,6 @@ fun AftercareScreen(controller: PlayerController, onDone: (Int?) -> Unit) {
     val state by controller.state.collectAsState()
     val before = state.checkInBefore
     var after by remember { mutableIntStateOf(before ?: 5) }
-    var touched by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -65,16 +63,18 @@ fun AftercareScreen(controller: PlayerController, onDone: (Int?) -> Unit) {
             CheckInSlider(
                 question = "Насколько сейчас напряжённо?",
                 value = after,
-                onValueChange = { after = it; touched = true },
+                onValueChange = { after = it },
             )
 
-            if (before != null && touched) {
+            // Сравнение показываем, если был чек-ин ДО — обновляется вживую при движении слайдера.
+            if (before != null) {
                 Spacer(Modifier.height(28.dp))
                 ComparisonCard(before = before, after = after)
             }
 
             Spacer(Modifier.weight(1f))
-            PrimaryButton("Готово") { onDone(if (touched) after else null) }
+            // «Готово» — записываем отметку по умолчанию; «Пропустить» — без неё.
+            PrimaryButton("Готово") { onDone(after) }
             Spacer(Modifier.height(6.dp))
             TextLink("Пропустить", onClick = { onDone(null) }, modifier = Modifier.align(Alignment.CenterHorizontally))
         }

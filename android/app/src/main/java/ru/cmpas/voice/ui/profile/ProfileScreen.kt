@@ -3,9 +3,6 @@ package ru.cmpas.voice.ui.profile
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -68,10 +65,6 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
     val history by container.store.history.collectAsState(initial = emptyList())
     var showClearDialog by remember { mutableStateOf(false) }
     var showAllHistory by remember { mutableStateOf(false) }
-
-    val notifPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* отказ не ломает: напоминание просто не сработает (DPO §3) */ }
 
     Box(
         modifier = Modifier
@@ -140,14 +133,11 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                 )
                 Divider()
                 SettingToggleRow(
-                    title = "Напоминания",
-                    subtitle = "Могу напомнить вечером. Если будет удобно.",
-                    checked = settings.remindersEnabled,
+                    title = "Не выключать экран",
+                    subtitle = "Дышащий фон остаётся во время практики, экран не гаснет.",
+                    checked = settings.keepScreenOn,
                     onCheckedChange = { checked ->
-                        scope.launch { container.store.setRemindersEnabled(checked) }
-                        if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                        }
+                        scope.launch { container.store.setKeepScreenOn(checked) }
                     },
                 )
                 Divider()

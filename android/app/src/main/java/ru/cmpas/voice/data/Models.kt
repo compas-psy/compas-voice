@@ -94,6 +94,7 @@ enum class SubscriptionStatus { FREE, TRIAL, ACTIVE }
 /** Настройки пользователя. */
 data class Settings(
     val defaultBackground: Background = Background.VOICE,
+    val keepScreenOn: Boolean = false,               // не гасить экран во время практики
     val remindersEnabled: Boolean = false,           // ВЫКЛ по умолчанию
     val subscriptionStatus: SubscriptionStatus = SubscriptionStatus.FREE,
 )
