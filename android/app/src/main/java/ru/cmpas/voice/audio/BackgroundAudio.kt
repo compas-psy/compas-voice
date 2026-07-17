@@ -80,6 +80,7 @@ class ExoBackgroundAudio(
 
     private var currentFamily: SoundFamily? = null
     private var binauralDesired = false
+    private var paused = false
     private var routeCallback: AudioDeviceCallback? = null
 
     private fun rawUri(resId: Int): Uri =
@@ -108,6 +109,7 @@ class ExoBackgroundAudio(
         fadeTo(player, BG_VOLUME, FADE_IN_MS)
 
         // Бинауральный слой — за флагом, поверх фона, только в наушниках.
+        paused = false
         currentFamily = family
         binauralDesired = FeatureFlags.spatialAudio && mode == Background.BINAURAL
         if (binauralDesired) {
@@ -117,11 +119,19 @@ class ExoBackgroundAudio(
     }
 
     override fun pause() {
+        paused = true
         bgPlayer?.let { p -> fadeTo(p, 0f, PAUSE_FADE_MS) { p.playWhenReady = false } }
-        binPlayer?.let { p -> fadeBin(p, 0f, 1_000L) { p.playWhenReady = false } }
+        // Бинаурал — жёсткая пауза: отменяем текущий фейд, глушим и останавливаем
+        // сразу (иначе слой продолжал звучать во время паузы — баг).
+        binPlayer?.let { p ->
+            binFadeJob?.cancel()
+            p.volume = 0f
+            p.playWhenReady = false
+        }
     }
 
     override fun resume() {
+        paused = false
         bgPlayer?.let { p -> p.playWhenReady = true; fadeTo(p, BG_VOLUME, PAUSE_FADE_MS) }
         binPlayer?.let { p -> p.playWhenReady = true; fadeBin(p, BIN_VOLUME, 8_000L) }
     }
@@ -134,6 +144,7 @@ class ExoBackgroundAudio(
     }
 
     override fun stop() {
+        paused = false
         binauralDesired = false
         unregisterRouteCallback()
         bgPlayer?.let { p ->
@@ -188,7 +199,7 @@ class ExoBackgroundAudio(
         val am = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
         val cb = object : AudioDeviceCallback() {
             override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
-                if (binauralDesired && isHeadphonesConnected() && binPlayer?.isPlaying != true) {
+                if (binauralDesired && !paused && isHeadphonesConnected() && binPlayer?.isPlaying != true) {
                     currentFamily?.let { startBinaural(it) } // fade-in при подключении
                 }
             }
