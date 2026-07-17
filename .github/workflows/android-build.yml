@@ -62,13 +62,16 @@ jobs:
           set -o pipefail
           /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee ../android-build.log
 
-      - name: Upload build log
-        if: always()
+      # Лог грузим ТОЛЬКО при падении сборки (тогда он и нужен) и best-effort:
+      # переполнение квоты артефактов не должно блокировать выпуск релиза.
+      - name: Upload build log (on failure)
+        if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: android-build-log
           path: android-build.log
-          retention-days: 14
+          retention-days: 3
 
       - name: Prepare APK
         id: apk
@@ -81,13 +84,9 @@ jobs:
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: kompas-voice-apk
-          path: kompas-voice-*.apk
-          retention-days: 90
-
+      # APK доставляется через Release (хранилище релизов отдельное от квоты
+      # артефактов Actions). Отдельную выгрузку APK-артефакта убрали — она
+      # дублировала релиз и съедала квоту.
       - name: Create Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
