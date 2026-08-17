@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -38,6 +39,11 @@ class LocalStore(context: Context) {
         val paywallSeen = booleanPreferencesKey("paywall_seen")
         val binauralExplainerSeen = booleanPreferencesKey("binaural_explainer_seen")
         val history = stringPreferencesKey("history_json")
+        val analyticsConsent = booleanPreferencesKey("analytics_consent")
+        val analyticsConsentAsked = booleanPreferencesKey("analytics_consent_asked")
+        val installedAtEpochMs = longPreferencesKey("installed_at_epoch_ms")
+        val analyticsDeviceId = stringPreferencesKey("analytics_device_id")
+        val analyticsQueue = stringPreferencesKey("analytics_queue_json")
     }
 
     private val prefs: Flow<Preferences> = ds.data.catch { emit(emptyPreferences()) }
@@ -127,7 +133,65 @@ class LocalStore(context: Context) {
         ds.edit { it[loopKey(family)] = index }
     }
 
-    /** Удаление всех пользовательских данных (право пользователя, DPO §6). */
+    // ── Аналитика (О-260817-06) — только с явного отдельного согласия ──
+    // Согласие спрашивается один раз, отдельно от чек-ина самочувствия; до
+    // согласия ничего из этого блока не уходит в очередь (AnalyticsRecorder).
+    val analyticsConsent: Flow<Boolean> = prefs.map { it[Keys.analyticsConsent] ?: false }
+    val analyticsConsentAsked: Flow<Boolean> = prefs.map { it[Keys.analyticsConsentAsked] ?: false }
+
+    suspend fun setAnalyticsConsent(granted: Boolean) {
+        ds.edit { it[Keys.analyticsConsent] = granted }
+    }
+
+    suspend fun markAnalyticsConsentAsked() {
+        ds.edit { it[Keys.analyticsConsentAsked] = true }
+    }
+
+    /**
+     * Момент первого запуска — пишется локально всегда, независимо от согласия
+     * (это не аналитическое событие, никуда не уходит). Идемпотентно: второй
+     * вызов возвращает уже сохранённое значение. Нужен, чтобы `app_installed`,
+     * если согласие дадут не сразу, ушло с реальным временем установки, а не
+     * временем согласия — это то, что делает возможной связку «установка +
+     * первая практика в тот же день» на стороне витрины.
+     */
+    suspend fun ensureInstalledAt(nowMs: Long): Long {
+        var result = nowMs
+        ds.edit { p ->
+            val existing = p[Keys.installedAtEpochMs]
+            if (existing != null) {
+                result = existing
+            } else {
+                p[Keys.installedAtEpochMs] = nowMs
+            }
+        }
+        return result
+    }
+
+    /** device_id для конверта события — создаётся один раз, живёт до «Очистить мои данные». */
+    suspend fun analyticsDeviceId(): String {
+        var id = ""
+        ds.edit { p ->
+            id = p[Keys.analyticsDeviceId] ?: java.util.UUID.randomUUID().toString().also {
+                p[Keys.analyticsDeviceId] = it
+            }
+        }
+        return id
+    }
+
+    /** Локальная очередь готовых к отправке событий (нет бэкенда — некуда слать сейчас). */
+    suspend fun enqueueAnalyticsEvent(eventJson: String) {
+        ds.edit { p ->
+            val current = p[Keys.analyticsQueue]
+                ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+                ?: emptyList()
+            val updated = (current + eventJson).takeLast(500)
+            p[Keys.analyticsQueue] = json.encodeToString(updated)
+        }
+    }
+
+    /** Удаление всех пользовательских данных (право пользователя, DPO §6).
+     *  Стирает и очередь аналитики, device_id и согласие — не только историю. */
     suspend fun clearAll() {
         ds.edit { it.clear() }
     }
