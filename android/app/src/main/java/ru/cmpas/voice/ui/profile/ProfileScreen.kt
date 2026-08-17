@@ -63,6 +63,7 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
     val context = LocalContext.current
     val settings by container.store.settings.collectAsState(initial = Settings())
     val history by container.store.history.collectAsState(initial = emptyList())
+    val analyticsConsent by container.store.analyticsConsent.collectAsState(initial = false)
     var showClearDialog by remember { mutableStateOf(false) }
     var showAllHistory by remember { mutableStateOf(false) }
 
@@ -138,6 +139,22 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                     checked = settings.keepScreenOn,
                     onCheckedChange = { checked ->
                         scope.launch { container.store.setKeepScreenOn(checked) }
+                    },
+                )
+                Divider()
+                SettingToggleRow(
+                    title = "Анонимная статистика",
+                    subtitle = "Какие практики запускают и дослушивают — без содержания, не привязано к тебе.",
+                    checked = analyticsConsent,
+                    onCheckedChange = { checked ->
+                        scope.launch {
+                            container.store.setAnalyticsConsent(checked)
+                            container.store.markAnalyticsConsentAsked()
+                            if (checked) {
+                                val installedAt = container.store.ensureInstalledAt(System.currentTimeMillis())
+                                container.analytics.recordAppInstalled(installedAt)
+                            }
+                        }
                     },
                 )
                 Divider()

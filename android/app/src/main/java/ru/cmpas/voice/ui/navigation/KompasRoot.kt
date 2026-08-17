@@ -18,6 +18,7 @@ import ru.cmpas.voice.AppContainer
 import ru.cmpas.voice.data.HistoryEntry
 import ru.cmpas.voice.data.SubscriptionStatus
 import ru.cmpas.voice.ui.aftercare.AftercareScreen
+import ru.cmpas.voice.ui.components.AnalyticsConsentDialog
 import ru.cmpas.voice.ui.onboarding.OnboardingScreen
 import ru.cmpas.voice.ui.paywall.PaywallScreen
 import ru.cmpas.voice.ui.player.PlayerScreen
@@ -40,6 +41,9 @@ fun KompasRoot(container: AppContainer) {
         mutableStateOf(if (ob) Screen.MAIN else Screen.ONBOARDING)
     }
 
+    // Согласие на аналитику (О-260817-06) — спрашивается один раз, после онбординга.
+    val consentAsked by container.store.analyticsConsentAsked.collectAsState(initial = true)
+
     // Завершение практики: запись истории локально + маршрут (пейволл/дом).
     fun finishAndRoute(checkInAfter: Int?) {
         scope.launch {
@@ -59,6 +63,12 @@ fun KompasRoot(container: AppContainer) {
                         isSleep = s.isSleep,
                     )
                 )
+                container.analytics.recordPracticeFinished(
+                    practiceId = s.practiceId,
+                    group = s.group?.name ?: "",
+                    isSleep = s.isSleep,
+                    completionPct = (s.fraction * 100).toInt(),
+                )
             }
             container.player.stop()
             screen = if (wasFirst && !paywallSeen) Screen.PAYWALL else Screen.MAIN
@@ -75,6 +85,13 @@ fun KompasRoot(container: AppContainer) {
             container = container,
             onStartPractice = { practice, config, checkInBefore ->
                 container.player.start(practice, config, checkInBefore, System.currentTimeMillis())
+                scope.launch {
+                    container.analytics.recordPracticeStarted(
+                        practiceId = practice.id,
+                        group = practice.group.name,
+                        isSleep = practice.isSleep,
+                    )
+                }
                 screen = Screen.PLAYER
             },
             onOpenPaywall = { screen = Screen.PAYWALL },
@@ -125,5 +142,21 @@ fun KompasRoot(container: AppContainer) {
                 },
             )
         }
+    }
+
+    if (ob && screen == Screen.MAIN && !consentAsked) {
+        AnalyticsConsentDialog(
+            onAllow = {
+                scope.launch {
+                    container.store.setAnalyticsConsent(true)
+                    container.store.markAnalyticsConsentAsked()
+                    val installedAt = container.store.ensureInstalledAt(System.currentTimeMillis())
+                    container.analytics.recordAppInstalled(installedAt)
+                }
+            },
+            onDecline = {
+                scope.launch { container.store.markAnalyticsConsentAsked() }
+            },
+        )
     }
 }
