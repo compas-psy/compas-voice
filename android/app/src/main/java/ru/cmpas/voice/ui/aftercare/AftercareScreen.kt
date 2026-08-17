@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
@@ -31,6 +32,7 @@ import ru.cmpas.voice.audio.PlayerController
 import ru.cmpas.voice.ui.components.CheckInSlider
 import ru.cmpas.voice.ui.components.PrimaryButton
 import ru.cmpas.voice.ui.components.TextLink
+import ru.cmpas.voice.ui.components.checkInToRecord
 import ru.cmpas.voice.ui.theme.BgGraphite
 import ru.cmpas.voice.ui.theme.SurfaceAlt
 import ru.cmpas.voice.ui.theme.Terracotta
@@ -42,6 +44,7 @@ fun AftercareScreen(controller: PlayerController, onDone: (Int?) -> Unit) {
     val state by controller.state.collectAsState()
     val before = state.checkInBefore
     var after by remember { mutableIntStateOf(before ?: 5) }
+    var touched by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -63,18 +66,19 @@ fun AftercareScreen(controller: PlayerController, onDone: (Int?) -> Unit) {
             CheckInSlider(
                 question = "Насколько сейчас напряжённо?",
                 value = after,
-                onValueChange = { after = it },
+                onValueChange = { after = it; touched = true },
             )
 
-            // Сравнение показываем, если был чек-ин ДО — обновляется вживую при движении слайдера.
-            if (before != null) {
+            // Сравнение показываем, если был чек-ин ДО и слайдер «после» тронули — обновляется
+            // вживую при движении. Не выдумываем «после» из дефолта, который не трогали.
+            if (before != null && touched) {
                 Spacer(Modifier.height(28.dp))
                 ComparisonCard(before = before, after = after)
             }
 
             Spacer(Modifier.weight(1f))
-            // «Готово» — записываем отметку по умолчанию; «Пропустить» — без неё.
-            PrimaryButton("Готово") { onDone(after) }
+            // «Готово» пишет отметку, только если было касание слайдера; «Пропустить» — без неё.
+            PrimaryButton("Готово") { onDone(checkInToRecord(after, touched)) }
             Spacer(Modifier.height(6.dp))
             TextLink("Пропустить", onClick = { onDone(null) }, modifier = Modifier.align(Alignment.CenterHorizontally))
         }

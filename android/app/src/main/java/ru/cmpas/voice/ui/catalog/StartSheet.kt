@@ -37,6 +37,7 @@ import ru.cmpas.voice.ui.components.Eyebrow
 import ru.cmpas.voice.ui.components.PrimaryButton
 import ru.cmpas.voice.ui.components.Segmented
 import ru.cmpas.voice.ui.components.TextLink
+import ru.cmpas.voice.ui.components.checkInToRecord
 import ru.cmpas.voice.ui.components.rememberHeadphonesConnected
 import ru.cmpas.voice.ui.theme.SurfaceAlt
 import ru.cmpas.voice.ui.theme.TextPrimary
@@ -59,6 +60,7 @@ fun StartSheet(
     var option by remember { mutableStateOf(practice.durations.first()) }
     var background by remember { mutableStateOf(defaultBackground) }
     var checkIn by remember { mutableIntStateOf(5) }
+    var touched by remember { mutableStateOf(false) }
     var skipped by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -125,22 +127,22 @@ fun StartSheet(
                 CheckInSlider(
                     question = "Насколько сейчас напряжённо?",
                     value = checkIn,
-                    onValueChange = { checkIn = it },
+                    onValueChange = { checkIn = it; touched = true },
                 )
             }
 
             Spacer(Modifier.height(24.dp))
             PrimaryButton("Начать") {
-                // Чек-ин записываем по умолчанию (значение на слайдере); null — только
-                // если пользователь явно нажал «Пропустить». Иначе before всегда пуст.
-                onStart(SessionConfig(option, background), if (skipped) null else checkIn)
+                // Чек-ин пишется, только если слайдер тронули; «Пропустить» и старт без
+                // касания — checkInBefore = null (docs/PRODUCT.md §5).
+                onStart(SessionConfig(option, background), if (skipped) null else checkInToRecord(checkIn, touched))
             }
 
             if (!skipped) {
                 Spacer(Modifier.height(6.dp))
                 TextLink(
                     "Пропустить чек-ин",
-                    onClick = { skipped = true },
+                    onClick = { skipped = true; touched = false },
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 )
             } else {
