@@ -12,10 +12,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.cmpas.voice.analytics.queueAfterConsentChange
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "kompas")
 
@@ -140,7 +142,13 @@ class LocalStore(context: Context) {
     val analyticsConsentAsked: Flow<Boolean> = prefs.map { it[Keys.analyticsConsentAsked] ?: false }
 
     suspend fun setAnalyticsConsent(granted: Boolean) {
-        ds.edit { it[Keys.analyticsConsent] = granted }
+        ds.edit { p ->
+            p[Keys.analyticsConsent] = granted
+            val current = p[Keys.analyticsQueue]
+                ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+                ?: emptyList()
+            p[Keys.analyticsQueue] = json.encodeToString(queueAfterConsentChange(current, granted))
+        }
     }
 
     suspend fun markAnalyticsConsentAsked() {
@@ -179,7 +187,7 @@ class LocalStore(context: Context) {
         return id
     }
 
-    /** Локальная очередь готовых к отправке событий (нет бэкенда — некуда слать сейчас). */
+    /** Локальная очередь готовых к отправке событий, ждущих [AnalyticsTransport]. */
     suspend fun enqueueAnalyticsEvent(eventJson: String) {
         ds.edit { p ->
             val current = p[Keys.analyticsQueue]
@@ -187,6 +195,25 @@ class LocalStore(context: Context) {
                 ?: emptyList()
             val updated = (current + eventJson).takeLast(500)
             p[Keys.analyticsQueue] = json.encodeToString(updated)
+        }
+    }
+
+    /** Старейшие [limit] событий очереди — [AnalyticsTransport] шлёт их по порядку (FIFO). */
+    suspend fun peekAnalyticsQueue(limit: Int): List<String> {
+        val current = ds.data.first()[Keys.analyticsQueue]
+            ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+            ?: emptyList()
+        return current.take(limit)
+    }
+
+    /** Снимает [count] самых старых событий — вызывается после успешной отправки. */
+    suspend fun removeAnalyticsEvents(count: Int) {
+        if (count <= 0) return
+        ds.edit { p ->
+            val current = p[Keys.analyticsQueue]
+                ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
+                ?: emptyList()
+            p[Keys.analyticsQueue] = json.encodeToString(current.drop(count))
         }
     }
 
