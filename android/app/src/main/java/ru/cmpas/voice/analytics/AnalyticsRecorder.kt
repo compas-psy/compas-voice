@@ -12,11 +12,10 @@ import kotlinx.serialization.json.JsonElement
  * До согласия ([isConsentGranted] == false) ничего не строится и не уходит в
  * очередь — ни один вызов record* не имеет побочного эффекта.
  *
- * Отправка за пределы устройства не реализована: у МОМЕНТОВ в MVP нет
- * бэкенда вообще (`docs/PRIVACY-DPO.md §1`, `CLAUDE.md`: «MVP работает без
- * бэкенда и без аккаунтов»). [enqueue] складывает событие в локальную очередь
- * (`LocalStore.enqueueAnalyticsEvent`), готовую к отправке, когда/если у
- * продукта появится собственный `POST /ingest` (`12_ANALYTICS.md §3`).
+ * У МОМЕНТОВ по-прежнему нет собственного бэкенда (`docs/PRIVACY-DPO.md §1`).
+ * [enqueue] складывает событие в локальную очередь (`LocalStore.enqueueAnalyticsEvent`);
+ * довозит её до существующего `POST /ingest` ПРАКТИКИ [AnalyticsTransport]
+ * (О-260817-14), за отдельным флагом, выключенным по умолчанию.
  */
 class AnalyticsRecorder(
     private val isConsentGranted: suspend () -> Boolean,

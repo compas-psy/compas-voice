@@ -16,6 +16,16 @@ android {
         versionCode = 2
         versionName = "0.1.1"
         vectorDrawables { useSupportLibrary = true }
+
+        // Адрес приёмника аналитики (О-260817-14) — из конфигурации сборки, не
+        // из кода: переопределяется свойством Gradle `analyticsIngestUrl`
+        // (например, -PanalyticsIngestUrl=... в CI), по умолчанию — прод-адрес
+        // существующего приёмника ПРАКТИКИ.
+        buildConfigField(
+            "String",
+            "ANALYTICS_INGEST_URL",
+            "\"${project.findProperty("analyticsIngestUrl") ?: "https://cmpas.ru/api/ingest"}\"",
+        )
     }
 
     signingConfigs {

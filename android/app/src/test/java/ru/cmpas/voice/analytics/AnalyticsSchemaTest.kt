@@ -85,4 +85,15 @@ class AnalyticsSchemaTest {
         val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev"))
         assertFalse(event.toString().contains("account_id"))
     }
+
+    /**
+     * О-260817-14: приёмник ПРАКТИКИ (`cmpas.ru/analytics/schema/events.yaml`)
+     * знает продукт как "moments", а не "momenty" — иначе конверт отвергается
+     * валидатором как неизвестный продукт ещё до проверки имени события.
+     */
+    @Test
+    fun envelope_productMatchesReceiverRegistry() {
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev"))
+        assertEquals("moments", event["product"]!!.jsonPrimitive.content)
+    }
 }

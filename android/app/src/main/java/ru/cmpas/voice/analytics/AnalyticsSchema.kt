@@ -36,7 +36,7 @@ fun buildAnalyticsEvent(
     return buildJsonObject {
         put("event", name)
         put("ts", ts)
-        put("product", "momenty")
+        put("product", "moments")
         put("device_id", deviceId)
         put("schema_version", 1)
         putJsonObject("props") {
