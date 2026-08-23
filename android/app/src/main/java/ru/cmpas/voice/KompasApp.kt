@@ -42,7 +42,7 @@ class AppContainer(context: Context) {
      * каждое событие очереди.
      */
     private val analyticsTransportConfigured =
-        isAnalyticsTransportConfigured(BuildConfig.ANALYTICS_INGEST_URL, BuildConfig.ANALYTICS_INGEST_SECRET)
+        isAnalyticsTransportConfigured(BuildConfig.ANALYTICS_INGEST_URL, BuildConfig.ANALYTICS_INGEST_SECRET_MOMENTS)
 
     /** Довозит очередь до приёмника ПРАКТИКИ (О-260817-14), см. AnalyticsTransport. */
     private val analyticsTransport = AnalyticsTransport(
@@ -75,8 +75,8 @@ class AppContainer(context: Context) {
         if (FeatureFlags.analyticsTransportEnabled && !analyticsTransportConfigured) {
             android.util.Log.w(
                 "AnalyticsTransport",
-                "analyticsTransportEnabled=true, но ANALYTICS_INGEST_URL/ANALYTICS_INGEST_SECRET не " +
-                    "заданы сборкой (свойства Gradle analyticsIngestUrl/analyticsIngestSecret) — " +
+                "analyticsTransportEnabled=true, но ANALYTICS_INGEST_URL/ANALYTICS_INGEST_SECRET_MOMENTS не " +
+                    "заданы сборкой (свойства Gradle analyticsIngestUrl/analyticsIngestSecretMoments) — " +
                     "события копятся в локальной очереди, но наружу не уходят.",
             )
         }
@@ -128,7 +128,7 @@ class AppContainer(context: Context) {
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.ANALYTICS_INGEST_SECRET}")
+            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.ANALYTICS_INGEST_SECRET_MOMENTS}")
             connection.outputStream.use { it.write(eventJson.toByteArray(Charsets.UTF_8)) }
             val statusCode = connection.responseCode
             val body = (if (statusCode in 200..299) connection.inputStream else connection.errorStream)

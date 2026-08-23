@@ -42,7 +42,7 @@ fun pendingRevocationAfterConsentChange(granted: Boolean, newRevocationEvent: St
  * Транспорт настраивается конфигурацией сборки, а не кодом (поток D):
  * адрес и секрет приёмника нужны оба, иначе слать нечем/некуда. Пустая
  * строка — незаполненное свойство Gradle (`app/build.gradle.kts`), не
- * ошибка сборки: локальная debug-сборка без `-PanalyticsIngestSecret=...`
+ * ошибка сборки: локальная debug-сборка без `-PanalyticsIngestSecretMoments=...`
  * обязана не пытаться слать, а не падать и не бить приёмник запросами,
  * гарантированно получающими 401 (приёмник ПРАКТИКИ fail-closed без
  * секрета — `verifyIngestSecret`, `src/app/api/ingest/route.ts`).

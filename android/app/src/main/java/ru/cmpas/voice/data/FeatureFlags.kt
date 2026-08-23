@@ -25,7 +25,7 @@ package ru.cmpas.voice.data
  *   согласие каждый на своей стороне (см. их тесты) — этот флаг только решает,
  *   пробует ли [ru.cmpas.voice.AppContainer] довезти уже согласованную и уже
  *   поставленную в очередь запись до сети, поверх адреса и секрета из сборки
- *   (`ANALYTICS_INGEST_URL`/`ANALYTICS_INGEST_SECRET`, `app/build.gradle.kts`);
+ *   (`ANALYTICS_INGEST_URL`/`ANALYTICS_INGEST_SECRET_MOMENTS`, `app/build.gradle.kts`);
  *   без них, даже при ON, транспорт явно молчит (лог), а не пытается слать.
  */
 object FeatureFlags {
