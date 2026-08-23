@@ -14,3 +14,17 @@ android.permission.INTERNET
   # согласованных событий в приёмник по HTTPS (AppContainer.postAnalyticsEvent,
   # BuildConfig.ANALYTICS_INGEST_URL) и потенциальной подгрузке аудио из CDN.
   # Без него транспорт молча не шлёт ничего, приложение остаётся оффлайновым.
+
+android.permission.ACCESS_NETWORK_STATE
+  # Приходит транзитивно из Media3/ExoPlayer — аудио-движок, то есть ядро
+  # приложения. Плеер проверяет состояние сети (BandwidthMeter/сетевой колбэк).
+  # Уровень normal: у человека ничего не спрашивают, Play Protect не реагирует.
+  # Снятие ведёт к SecurityException в аудио-пути — том самом, ради которого
+  # приложение существует, поэтому не убираем.
+
+ru.cmpas.voice.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+  # Сгенерировано androidx.core автоматически для внутренних НЕ-экспортируемых
+  # динамических BroadcastReceiver (ContextCompat.registerReceiver, флаг
+  # RECEIVER_NOT_EXPORTED). Приватное разрешение уровня signature: приложение
+  # выдаёт его само себе, у пользователя не спрашивается, в сторе как «доступ»
+  # не показывается. Прунить нечего — удаление ломает безопасную регистрацию.
