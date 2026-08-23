@@ -134,10 +134,12 @@ jobs:
             exit 1
           fi
 
-      # release-сборка НЕПОДПИСАННАЯ: minify + shrink работают здесь, до подписи,
-      # поэтому сюрпризы proguard видны и на PR (без секретов). Подпись — ниже,
-      # внешним apksigner, только на main.
-      - name: Build unsigned release APK
+      # release-сборка: minify + shrink, подпись рабочим ключом из репозитория
+      # (android/keystore, signingConfigs в app/build.gradle.kts). Секретов CI для
+      # подписи не требует — поэтому сюрпризы proguard и готовый подписанный пакет
+      # проверяются одинаково и на PR, и на main. Отпечаток готового APK сверяется
+      # ниже с android/app/EXPECTED_SIGNER.txt.
+      - name: Build release APK
         working-directory: android
         shell: bash
         env:
@@ -217,135 +219,41 @@ jobs:
           [ -z "${absent}" ] || { echo "::warning::Заявлены, но в APK не видны (возможно maxSdkVersion): ${absent}"; }
           echo "OK: разрешения APK = { ${apk_perms} } — все заявлены и объяснены."
 
-      # ── Подпись готового APK (main): keystore из секрета, свой отпечаток ──
-      - name: Восстановить keystore из секрета и сверить отпечаток
-        id: keystore
-        if: github.ref == 'refs/heads/main'
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      # ── Сторож подписи ГОТОВОГО пакета ──────────────────────────────────
+      # Проверяется распространяемый файл: тем ли ключом он подписан и не
+      # отладочный ли это ключ. Секретов не требует (подпись делает Gradle
+      # ключом из репозитория), поэтому идёт и на PR, и на main.
+      - name: Guard — подпись APK совпадает с EXPECTED_SIGNER
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] \
-             || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
-            echo "::error::Секреты подписи не заданы — релиз МОМЕНТОВ остановлен."
-            cat <<'MSG'
-
-          ЧТО НЕ ЗАДАНО
-          Ключ подписи вынесен из репозитория в секреты CI. Нужны ЧЕТЫРЕ секрета
-          (Settings → Secrets and variables → Actions):
-            ANDROID_KEYSTORE_BASE64    — keystore (.jks), закодированный base64 -w0
-            ANDROID_KEYSTORE_PASSWORD  — пароль хранилища
-            ANDROID_KEY_ALIAS          — алиас ключа
-            ANDROID_KEY_PASSWORD       — пароль ключа
-          Ключ — ТОТ ЖЕ, что был в репозитории (тот же отпечаток), иначе обновление
-          поверх установленных копий перестанет работать. Значения — в отчёте агента.
-          MSG
-            exit 1
-          fi
-
-          mkdir -p "${RUNNER_TEMP}/signing"
-          keystore="${RUNNER_TEMP}/signing/release.jks"
-          # Максимально устойчивое декодирование вставленного секрета:
-          #  1) tr '_-' '/+' — URL-safe base64 → стандартный (на стандартном это no-op);
-          #  2) tr -cd 'A-Za-z0-9+/=' — оставить ТОЛЬКО символы алфавита base64,
-          #     выкинув пробелы/переносы/CR и посторонние знаки, которые заносит
-          #     вставка из терминала (напр. хвостовой '%' от zsh без перевода строки)
-          #     — из-за них `base64 -d` спотыкался «invalid input».
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | tr '_-' '/+' | tr -cd 'A-Za-z0-9+/=' | base64 -d > "${keystore}" 2>/dev/null || true
-          size="$(wc -c < "${keystore}" 2>/dev/null || echo 0)"
-          if [ "${size}" -eq 0 ]; then
-            echo "::error::keystore не декодировался из ANDROID_KEYSTORE_BASE64 (0 байт) — секрет пуст или не base64. Вставьте вывод \`base64 -w0 keystore.jks\` целиком."
-            exit 1
-          fi
-          # Настоящий kompas-voice.jks — ровно 2728 байт. Явно показываем размер:
-          # он не секрет, но сразу отвечает «тот ли это файл вообще».
-          echo "keystore декодирован: ${size} байт (у настоящего kompas-voice.jks — 2728)."
-
-          # Алиас существует и пароль подходит — с явной диагностикой при провале.
-          if ! keytool -list -keystore "${keystore}" \
-                 -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" \
-                 >/tmp/kt.txt 2>&1; then
-            echo "::error::keytool не открыл keystore этим паролем/алиасом. Размер: ${size} байт (ждём 2728). Возможные причины: ANDROID_KEYSTORE_BASE64 — не тот файл/обрезан; неверный ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD. Вывод keytool:"
-            tail -5 /tmp/kt.txt
-            exit 1
-          fi
-          echo "keytool: алиас и пароль приняты."
-
-          # Отпечаток ИЗ keystore, до подписи, и сверка с закоммиченным EXPECTED_SIGNER.txt.
-          expected="$(LANG=C keytool -list -v -keystore "${keystore}" \
-            -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" \
-            | awk -F'SHA256: ' '/SHA256:/ { gsub(":", "", $2); print tolower($2); exit }')"
-          repo_fp="$(tr -d '[:space:]' < android/app/EXPECTED_SIGNER.txt)"
-          if [ "${expected}" != "${repo_fp}" ]; then
-            echo "::error::Отпечаток ключа из секрета разошёлся с android/app/EXPECTED_SIGNER.txt"
-            echo "  keystore secret: ${expected}"
-            echo "  EXPECTED_SIGNER: ${repo_fp}"
-            echo "  → это ДРУГОЙ ключ. Если он сменён сознательно — обновите EXPECTED_SIGNER.txt (и знайте: обновление поверх установленных копий сломается)."
-            exit 1
-          fi
-          echo "keystore=${keystore}" >> "$GITHUB_OUTPUT"
-          echo "expected_signer=${expected}" >> "$GITHUB_OUTPUT"
-          echo "Отпечаток совпал с EXPECTED_SIGNER.txt: ${expected}"
-
-      - name: Подписать APK (zipalign + apksigner)
-        id: sign
-        if: github.ref == 'refs/heads/main'
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
+          set -uo pipefail
           tools="$(find "${ANDROID_HOME}/build-tools" -maxdepth 1 -type d | sort -V | tail -1)"
-          unsigned='${{ steps.builtapk.outputs.path }}'
-          "${tools}/zipalign" -p -f 4 "${unsigned}" "${RUNNER_TEMP}/aligned.apk"
-          "${tools}/apksigner" sign \
-            --ks "${{ steps.keystore.outputs.keystore }}" \
-            --ks-pass "pass:${ANDROID_KEYSTORE_PASSWORD}" \
-            --ks-key-alias "${ANDROID_KEY_ALIAS}" \
-            --key-pass "pass:${ANDROID_KEY_PASSWORD}" \
-            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
-            --out "${RUNNER_TEMP}/signed.apk" \
-            "${RUNNER_TEMP}/aligned.apk"
-          echo "apksigner=${tools}/apksigner" >> "$GITHUB_OUTPUT"
-          echo "signed=${RUNNER_TEMP}/signed.apk" >> "$GITHUB_OUTPUT"
-
-      - name: Проверить подпись готового APK
-        id: verify
-        if: github.ref == 'refs/heads/main'
-        env:
-          EXPECTED_SIGNER_SHA256: ${{ steps.keystore.outputs.expected_signer }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          apksigner='${{ steps.sign.outputs.apksigner }}'
-          apk='${{ steps.sign.outputs.signed }}'
-          "${apksigner}" verify --verbose --print-certs "${apk}" > "${RUNNER_TEMP}/apksigner.txt" 2>&1
-          cat "${RUNNER_TEMP}/apksigner.txt"
-
-          # Отпечаток подписи готового файла обязан совпасть с ожидаемым.
-          got="$(grep -ioP 'SHA-256 digest:\s*\K[0-9a-f]+' "${RUNNER_TEMP}/apksigner.txt" | head -1 || true)"
-          if [ -z "${got}" ]; then
-            got="$(grep -ioP 'certificate SHA-?256 digest:\s*\K[0-9a-f]+' "${RUNNER_TEMP}/apksigner.txt" | head -1 || true)"
+          apk='${{ steps.builtapk.outputs.path }}'
+          "${tools}/apksigner" verify --verbose --print-certs "${apk}" > /tmp/apksigner.txt 2>&1
+          code=$?
+          cat /tmp/apksigner.txt
+          if [ "${code}" -ne 0 ]; then
+            echo "::error::apksigner verify не подтвердил подпись APK (код ${code}) — пакет не подписан или повреждён."
+            exit 1
           fi
-          if [ "${got}" != "${EXPECTED_SIGNER_SHA256}" ]; then
-            echo "::error::Отпечаток подписи готового APK не совпал с ожидаемым."
+
+          expected="$(tr -d '[:space:]' < android/app/EXPECTED_SIGNER.txt)"
+          got="$(grep -ioP 'certificate SHA-?256 digest:\s*\K[0-9a-f]+' /tmp/apksigner.txt | head -1 || true)"
+          [ -n "${got}" ] || got="$(grep -ioP 'SHA-?256 digest:\s*\K[0-9a-f]+' /tmp/apksigner.txt | head -1 || true)"
+          if [ "${got}" != "${expected}" ]; then
+            echo "::error::Отпечаток подписи готового APK не совпал с android/app/EXPECTED_SIGNER.txt"
             echo "  apk:      ${got}"
-            echo "  expected: ${EXPECTED_SIGNER_SHA256}"
+            echo "  expected: ${expected}"
+            echo "  → это ДРУГОЙ ключ. Смена ключа ломает обновление поверх установленных копий."
             exit 1
           fi
 
           # Пакет с CN=Android Debug — первое, на что реагирует Play Защита.
-          if grep -qi 'CN=Android Debug' "${RUNNER_TEMP}/apksigner.txt"; then
+          if grep -qi 'CN=Android Debug' /tmp/apksigner.txt; then
             echo "::error::APK подписан отладочным ключом (CN=Android Debug) — раздавать нельзя."
             exit 1
           fi
-          echo "OK: подпись готового APK совпала с EXPECTED_SIGNER, CN не отладочный."
+          echo "OK: APK подписан ожидаемым ключом (${got}), CN не отладочный."
 
       # ── Публикация: имя по правилу СИМПАС, релиз на ВЕРСИЮ (обновляем на месте) ──
       - name: Публикация Release (по версии, обновление на месте)
@@ -356,7 +264,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
-          cp '${{ steps.sign.outputs.signed }}' "artifacts/${{ steps.naming.outputs.apk_name }}"
+          cp '${{ steps.builtapk.outputs.path }}' "artifacts/${{ steps.naming.outputs.apk_name }}"
 
           tag='${{ steps.naming.outputs.tag }}'
           title="МОМЕНТЫ v${{ steps.naming.outputs.version }} (Android)"

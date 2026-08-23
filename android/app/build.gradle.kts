@@ -62,25 +62,38 @@ android {
         )
     }
 
-    // Подписи в build.gradle нет намеренно. Ключ подписи вынесен из рабочего
-    // дерева в секреты CI (ANDROID_KEYSTORE_BASE64 и пароли) — в репозитории его
-    // больше нет. release-сборка здесь выходит НЕПОДПИСАННОЙ; CI восстанавливает
-    // keystore из секрета и подписывает готовый APK внешним apksigner (zipalign
-    // + sign + verify + сверка отпечатка с EXPECTED_SIGNER.txt), см.
-    // .github/workflows/android-build.yml. Так ключ не лежит в git, а сверка идёт
-    // по РАСПРОСТРАНЯЕМОМУ файлу, а не по намерению сборки.
-    // Ключ подписи — тот же, что и раньше (тот же отпечаток): обновление поверх
-    // установленных копий продолжает работать. Локальная debug-сборка на машине
-    // разработчика подписывается стандартным debug-ключом Android — для стора и
-    // раздачи людям она всё равно не годится (debuggable), см. PRIVACY-DPO.
+    // ВРЕМЕННО: ключ подписи снова в репозитории (как было до правок), чтобы
+    // выпуск не зависел от миграции ключа в секреты CI. Схема с ключом ИСКЛЮЧИТЕЛЬНО
+    // из секретов подготовлена отдельно (см. PR «Ротация ключа подписи») и включается
+    // учредителем вместе со сменой ключа. Пока действует эта схема — считать ключ и
+    // пароли скомпрометированными: они лежат в git.
+    signingConfigs {
+        // Стабильный ключ подписи, закоммичен в репозиторий, чтобы КАЖДЫЙ APK
+        // (debug и release, из любого CI-прогона) был подписан одинаково. Это:
+        //  1) позволяет установить APK в обход стора и обновлять его «на месте»
+        //     (без удаления), т.к. подпись не меняется между сборками;
+        //  2) снимает часть предупреждений Play Protect при sideload-установке.
+        // Это НЕ ключ для публикации в Google Play — для стора нужен отдельный
+        // upload key + Play App Signing (через секреты CI, не в git). См. PRIVACY-DPO.
+        create("kompas") {
+            storeFile = rootProject.file("keystore/kompas-voice.jks")
+            storePassword = "kompasvoice2026"
+            keyAlias = "kompas"
+            keyPassword = "kompasvoice2026"
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("kompas")
         }
         release {
             // Раздаётся людям: НЕ debuggable (по умолчанию для release),
-            // minify + shrink включены. Подпись — на стороне CI (см. выше).
+            // minify + shrink включены. Подпись — ключом из репозитория (см. выше);
+            // CI дополнительно сверяет отпечаток ГОТОВОГО APK с EXPECTED_SIGNER.txt.
+            signingConfig = signingConfigs.getByName("kompas")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
