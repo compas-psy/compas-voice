@@ -52,6 +52,15 @@ class AppContainer(context: Context) {
         sendOne = { postAnalyticsEvent(it) },
     )
 
+    /** Довозит отложенный отзыв согласия (E-M1) — мимо согласие-гейта flush(), см. AnalyticsTransport.flushPendingRevocation. */
+    private suspend fun flushPendingAnalyticsRevocation() {
+        if (!FeatureFlags.analyticsTransportEnabled || !analyticsTransportConfigured) return
+        analyticsTransport.flushPendingRevocation(
+            peekPendingRevocation = { store.peekPendingAnalyticsRevocation() },
+            clearPendingRevocation = { store.clearPendingAnalyticsRevocation() },
+        )
+    }
+
     /** Разметка МОМЕНТОВ (О-260817-06) — события только с согласия, см. AnalyticsRecorder. */
     val analytics = AnalyticsRecorder(
         isConsentGranted = { store.analyticsConsent.first() },
@@ -71,6 +80,34 @@ class AppContainer(context: Context) {
                     "события копятся в локальной очереди, но наружу не уходят.",
             )
         }
+    }
+
+    /**
+     * Отзыв согласия (E-M1, контракт контура v2) — единственная точка входа
+     * для UI (KompasRoot/ProfileScreen), которую вызывающий код обязан
+     * звать вместо голого `store.setAnalyticsConsent(false)`.
+     *
+     * Порядок здесь и есть решение ловушки: [analytics].buildConsentRevokedEvent
+     * строит конверт ПЕРВЫМ, пока согласие ещё true — не потому, что ему
+     * это нужно (он согласие не спрашивает вовсе, см. его комментарий), а
+     * потому, что результат нужен как аргумент [LocalStore.setAnalyticsConsent],
+     * которая кладёт его в «карман» в той же транзакции, что стирает
+     * обычную очередь и переключает флаг. Затем [flushPendingAnalyticsRevocation]
+     * пробует отправить немедленно, тем же путём, которым отправился бы
+     * непослушанный при прошлом запуске отзыв (не через [analyticsTransport]
+     * .flush(), который сам откажется — согласие уже false).
+     *
+     * Дыры нет: обычная очередь стирается как и раньше
+     * (`queueAfterConsentChange`, поток D), а карман — единственное, что
+     * способно пережить это переключение флага — содержит ровно то, что в
+     * него положил этот вызов, ничего содержательного (гарантия
+     * `pendingRevocationAfterConsentChange` + сам факт, что записать что-то
+     * ещё в очередь при согласии false не может никто — `AnalyticsRecorder.record`).
+     */
+    suspend fun revokeAnalyticsConsent() {
+        val revocationEvent = analytics.buildConsentRevokedEvent()
+        store.setAnalyticsConsent(granted = false, revocationEvent = revocationEvent)
+        flushPendingAnalyticsRevocation()
     }
 
     /**
@@ -105,10 +142,20 @@ class AppContainer(context: Context) {
         }
     }
 
-    /** Довезти накопленную очередь, если сеть/согласие уже позволяют (например, при старте приложения). */
+    /**
+     * Довезти накопленную очередь, если сеть/согласие уже позволяют
+     * (например, при старте приложения). Сначала — неотправленный отзыв
+     * прошлой сессии (E-M1: устройство было офлайн в момент отзыва), он не
+     * зависит от согласия; потом обычная очередь, которая от него зависит.
+     * Порядок не влияет на корректность (обе части независимы), только на
+     * то, что уходит раньше при восстановлении сети.
+     */
     fun flushAnalyticsQueue() {
         if (!FeatureFlags.analyticsTransportEnabled || !analyticsTransportConfigured) return
-        appScope.launch { analyticsTransport.flush() }
+        appScope.launch {
+            flushPendingAnalyticsRevocation()
+            analyticsTransport.flush()
+        }
     }
 }
 
