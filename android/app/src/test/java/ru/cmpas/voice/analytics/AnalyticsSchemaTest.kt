@@ -1,6 +1,7 @@
 package ru.cmpas.voice.analytics
 
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -125,5 +126,55 @@ class AnalyticsSchemaTest {
     fun envelope_includesEventId() {
         val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev", eventId = "unique-id-1"))
         assertEquals("unique-id-1", event["event_id"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * Поток E: "consent_updated" был отсутствующим в EVENT_SCHEMA именем —
+     * до этой записи buildAnalyticsEvent молча возвращал null для него
+     * (как unknownEventName_isRejected выше), и AnalyticsRecorder не мог
+     * поставить в очередь ни выдачу, ни отзыв согласия ни при каких
+     * условиях. Здесь — низкоуровневая проверка самого конверта; правило
+     * «сначала выдача/отзыв, потом всё содержательное» проверяет
+     * AnalyticsRecorder/LocalStore, не эта функция.
+     */
+    @Test
+    fun consentUpdated_isKnownEvent_carriesGrantedFlag() {
+        val granted = requireNotNull(
+            buildAnalyticsEvent(
+                "consent_updated",
+                mapOf("granted" to JsonPrimitive(true)),
+                ts = 4_000L,
+                deviceId = "dev-1",
+                eventId = "eid-4",
+            )
+        )
+        assertEquals("consent_updated", granted["event"]!!.jsonPrimitive.content)
+        assertTrue(granted["props"]!!.jsonObject["granted"]!!.jsonPrimitive.boolean)
+
+        val revoked = requireNotNull(
+            buildAnalyticsEvent(
+                "consent_updated",
+                mapOf("granted" to JsonPrimitive(false)),
+                ts = 4_001L,
+                deviceId = "dev-1",
+                eventId = "eid-5",
+            )
+        )
+        assertFalse(revoked["props"]!!.jsonObject["granted"]!!.jsonPrimitive.boolean)
+    }
+
+    /** Как practiceStarted_keepsOnlyDeclaredProps_andDropsFreeText — реестр строгий и для этого события тоже. */
+    @Test
+    fun consentUpdated_dropsUndeclaredProps() {
+        val event = requireNotNull(
+            buildAnalyticsEvent(
+                "consent_updated",
+                mapOf("granted" to JsonPrimitive(true), "reason" to JsonPrimitive("свободный текст")),
+                ts = 4_002L,
+                deviceId = "dev-1",
+                eventId = "eid-6",
+            )
+        )
+        assertEquals(setOf("granted"), event["props"]!!.jsonObject.keys)
     }
 }

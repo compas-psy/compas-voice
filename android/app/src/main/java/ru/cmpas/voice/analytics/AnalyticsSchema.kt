@@ -20,6 +20,18 @@ private val EVENT_SCHEMA: Map<String, Set<String>> = mapOf(
     "practice_started" to setOf("practice_id", "group", "is_sleep"),
     "practice_finished" to setOf("practice_id", "group", "is_sleep", "completion_pct"),
     "crossed_to_product" to setOf("target_product"),
+    // Контракт контура v2 (поток E): раньше "consent_updated" в
+    // analytics/schema/events.yaml был объявлен под product: practice
+    // единолично — приёмник (validateEvent) отклонял его от МОМЕНТОВ как
+    // «событие чужого продукта», хотя именно им МОМЕНТЫ обязаны ставить
+    // AnalyticsDeviceConsent для самих себя (writeDeviceOnlyEvent). Замкнутый
+    // круг: без согласия отвергалось всё, а согласие поставить было нечем.
+    // Параллельная задача на стороне ПРАКТИКИ делает "consent_updated" (и
+    // "identity_linked") разрешёнными всем трём продуктам в реестре —
+    // отсюда обязана начаться отправка, реестр клиента (этот файл) должен
+    // знать событие независимо от того, докатилась ли уже правка приёмника
+    // (см. AnalyticsRecorder.recordConsentUpdated/buildConsentRevokedEvent).
+    "consent_updated" to setOf("granted"),
 )
 
 /**
