@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.cmpas.voice.analytics.pendingRevocationAfterConsentChange
 import ru.cmpas.voice.analytics.queueAfterConsentChange
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "kompas")
@@ -46,6 +47,8 @@ class LocalStore(context: Context) {
         val installedAtEpochMs = longPreferencesKey("installed_at_epoch_ms")
         val analyticsDeviceId = stringPreferencesKey("analytics_device_id")
         val analyticsQueue = stringPreferencesKey("analytics_queue_json")
+        /** Однослотовый «карман» отложенного отзыва согласия (E-M1) — см. setAnalyticsConsent. */
+        val analyticsPendingRevocation = stringPreferencesKey("analytics_pending_revocation_json")
     }
 
     private val prefs: Flow<Preferences> = ds.data.catch { emit(emptyPreferences()) }
@@ -141,14 +144,39 @@ class LocalStore(context: Context) {
     val analyticsConsent: Flow<Boolean> = prefs.map { it[Keys.analyticsConsent] ?: false }
     val analyticsConsentAsked: Flow<Boolean> = prefs.map { it[Keys.analyticsConsentAsked] ?: false }
 
-    suspend fun setAnalyticsConsent(granted: Boolean) {
+    /**
+     * @param revocationEvent Готовый JSON `consent_updated{granted:false}`
+     * (`AnalyticsRecorder.buildConsentRevokedEvent`) — вызывающий код
+     * (`AppContainer.revokeAnalyticsConsent`) обязан построить его ДО этого
+     * вызова, пока ещё доступен как параметр: `buildConsentRevokedEvent`
+     * сам согласие не спрашивает (device_id/event_id доступны независимо
+     * от него), но результат нужен здесь, чтобы положить его в «карман» в
+     * ТОЙ ЖЕ транзакции DataStore, что и флаг/очередь — иначе краш между
+     * построением события и его сохранением полностью бы его терял (флаг
+     * уже false, а карман пуст, и второй попытки построить то же событие
+     * никто не планирует). Игнорируется при выдаче согласия (`granted =
+     * true`) — см. [pendingRevocationAfterConsentChange].
+     */
+    suspend fun setAnalyticsConsent(granted: Boolean, revocationEvent: String? = null) {
         ds.edit { p ->
             p[Keys.analyticsConsent] = granted
             val current = p[Keys.analyticsQueue]
                 ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
                 ?: emptyList()
             p[Keys.analyticsQueue] = json.encodeToString(queueAfterConsentChange(current, granted))
+            when (val pending = pendingRevocationAfterConsentChange(granted, revocationEvent)) {
+                null -> p.remove(Keys.analyticsPendingRevocation)
+                else -> p[Keys.analyticsPendingRevocation] = pending
+            }
         }
+    }
+
+    /** Отложенный отзыв согласия, ждущий отдельной доставки — см. AnalyticsTransport.flushPendingRevocation. */
+    suspend fun peekPendingAnalyticsRevocation(): String? = ds.data.first()[Keys.analyticsPendingRevocation]
+
+    /** Вызывается только после подтверждённого приёма приёмником — см. AnalyticsTransport.flushPendingRevocation. */
+    suspend fun clearPendingAnalyticsRevocation() {
+        ds.edit { it.remove(Keys.analyticsPendingRevocation) }
     }
 
     suspend fun markAnalyticsConsentAsked() {
@@ -218,7 +246,10 @@ class LocalStore(context: Context) {
     }
 
     /** Удаление всех пользовательских данных (право пользователя, DPO §6).
-     *  Стирает и очередь аналитики, device_id и согласие — не только историю. */
+     *  Стирает и очередь аналитики, device_id, согласие и отложенный отзыв
+     *  (E-M1) — не только историю. Отзыв, ещё не успевший уйти, при этом
+     *  теряется вместе со всем остальным: это отдельное право («стереть
+     *  мои данные») от отзыва согласия, и намеренно не решается здесь. */
     suspend fun clearAll() {
         ds.edit { it.clear() }
     }

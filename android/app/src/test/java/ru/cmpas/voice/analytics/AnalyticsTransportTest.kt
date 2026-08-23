@@ -2,6 +2,7 @@ package ru.cmpas.voice.analytics
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -136,5 +137,196 @@ class AnalyticsTransportTest {
         shouldSucceed = true
         transport.flush()
         assertTrue(queue.items.isEmpty())
+    }
+
+    /**
+     * Поток D, задача D3: приёмник ПРАКТИКИ принимает массив до
+     * `MAX_INGEST_BATCH_SIZE = 200` событий за один POST
+     * (`src/lib/analytics/ingest.ts` в `compas-psy/cmpas.ru`, число
+     * скопировано сюда буквально — сеть до того репозитория здесь не тянем,
+     * при расхождении обновлять руками). [AnalyticsTransport] его не
+     * приближается к этому пределу структурно: [AnalyticsTransport.BATCH_SIZE]
+     * управляет тем, сколько ОТДЕЛЬНЫХ HTTP-запросов (по одному событию
+     * каждый, см. сигнатуру [AnalyticsTransport.flush]'а зависимости
+     * `sendOne: suspend (String) -> Boolean`) транспорт делает подряд за один
+     * проход, а не размером тела одного запроса — тело всегда одно событие.
+     */
+    @Test
+    fun batchSize_staysWithinReceiverServerLimit() {
+        val receiverMaxBatchSize = 200
+        assertTrue(
+            "AnalyticsTransport.BATCH_SIZE (${AnalyticsTransport.BATCH_SIZE}) не должен " +
+                "приближаться к лимиту приёмника ($receiverMaxBatchSize) без сознательного решения " +
+                "перейти на отправку массивом",
+            AnalyticsTransport.BATCH_SIZE <= receiverMaxBatchSize,
+        )
+    }
+
+    /**
+     * sendOne шлёт РОВНО одно событие за вызов — значит тело каждого
+     * запроса к приёмнику физически не может превысить лимит в 200 событий
+     * за пачку, независимо от размера локальной очереди (500,
+     * `LocalStore.enqueueAnalyticsEvent`). Прогоняем полную пачку и считаем
+     * вызовы sendOne — каждый получает один JSON-объект, не массив.
+     */
+    @Test
+    fun eachSendOneCall_carriesExactlyOneEvent_neverABatchArray() = runBlocking {
+        val queue = FakeQueue((1..AnalyticsTransport.BATCH_SIZE).map { "event-$it" })
+        val received = mutableListOf<String>()
+        val transport = AnalyticsTransport(
+            isConsentGranted = { true },
+            peekQueue = { queue.peek(it) },
+            removeSent = { queue.remove(it) },
+            sendOne = { received.add(it); true },
+        )
+
+        transport.flush()
+
+        assertEquals(AnalyticsTransport.BATCH_SIZE, received.size)
+        received.forEach { assertFalse("sendOne получил похожее на JSON-массив тело: $it", it.trim().startsWith("[")) }
+    }
+}
+
+/**
+ * E-M1: [AnalyticsTransport.flushPendingRevocation] — единственный способ,
+ * которым отзыв согласия обязан уйти, даже когда [AnalyticsTransport.flush]
+ * выше по этому же файлу честно отказывается слать что-либо
+ * ([AnalyticsTransportTest.withoutConsent_neverSendsQueuedEvents]).
+ * Отдельный класс тестов — не трогает peekQueue/removeSent из FakeQueue
+ * выше вовсе, только собственные параметры метода, отдельные от обычной
+ * очереди по конструкции (LocalStore хранит их в разных ключах DataStore).
+ */
+class AnalyticsTransportPendingRevocationTest {
+
+    @Test
+    fun sendsDespiteMissingConsent_andClearsSlotOnAcceptance() = runBlocking {
+        var sent: String? = null
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false }, // отзыв: согласие в этот момент честно false
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { sent = it; true },
+        )
+        var cleared = false
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { "consent-revoked-event-json" },
+            clearPendingRevocation = { cleared = true },
+        )
+
+        assertEquals("consent-revoked-event-json", sent)
+        assertTrue("карман обязан очиститься только после подтверждённого приёма", cleared)
+    }
+
+    @Test
+    fun noPendingRevocation_neverCallsSendOne() = runBlocking {
+        var sendCalls = 0
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false },
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { sendCalls++; true },
+        )
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { null },
+            clearPendingRevocation = { error("нечего очищать — clear не должен вызываться") },
+        )
+
+        assertEquals(0, sendCalls)
+    }
+
+    /**
+     * Отказ приёмника (например, тот же честный {accepted:false} на
+     * одиночное событие, что уже разобран isIngestResponseAccepted) не
+     * должен стирать «карман» — иначе отзыв теряется навсегда, ровно та
+     * тихая потеря, от которой поток D защитил обычную очередь
+     * (isIngestResponseAccepted). Следующий вызов (следующий запуск
+     * приложения) обязан увидеть тот же отзыв и попробовать снова.
+     */
+    @Test
+    fun sendFails_leavesRevocationPendingForRetry() = runBlocking {
+        var clearCalls = 0
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false },
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { false },
+        )
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { "consent-revoked-event-json" },
+            clearPendingRevocation = { clearCalls++ },
+        )
+
+        assertEquals(0, clearCalls)
+    }
+}
+
+/**
+ * [isAnalyticsTransportConfigured] и [isIngestResponseAccepted] — чистые
+ * функции конфигурации/разбора ответа транспорта (поток D), вынесены сюда
+ * же, чтобы `AppContainer` (Android, без юнит-тестов) оставался тонкой
+ * склейкой над уже проверенной логикой.
+ */
+class AnalyticsTransportConfigTest {
+
+    @Test
+    fun configured_whenBothUrlAndSecretPresent() {
+        assertTrue(isAnalyticsTransportConfigured("https://cmpas.ru/api/ingest", "topsecret"))
+    }
+
+    @Test
+    fun notConfigured_whenSecretMissing() {
+        assertFalse(isAnalyticsTransportConfigured("https://cmpas.ru/api/ingest", ""))
+    }
+
+    @Test
+    fun notConfigured_whenUrlMissing() {
+        assertFalse(isAnalyticsTransportConfigured("", "topsecret"))
+    }
+
+    @Test
+    fun notConfigured_whenBothBlank() {
+        assertFalse(isAnalyticsTransportConfigured("   ", "   "))
+    }
+}
+
+class IngestResponseAcceptedTest {
+
+    @Test
+    fun accepted_on200WithAcceptedTrue() {
+        assertTrue(isIngestResponseAccepted(200, """{"accepted":true}"""))
+    }
+
+    /**
+     * Дефект, найденный сверкой с `src/app/api/ingest/route.ts` (поток D):
+     * одиночное событие приёмник ВСЕГДА отвечает 200, включая честный отказ —
+     * `{accepted:false, reason:"rate limited"}` и подобные. Код состояния сам
+     * по себе не отличает успех от отказа.
+     */
+    @Test
+    fun notAccepted_on200WithAcceptedFalse_rateLimitedOrRejected() {
+        assertFalse(isIngestResponseAccepted(200, """{"accepted":false,"reason":"rate limited"}"""))
+        assertFalse(isIngestResponseAccepted(200, """{"accepted":false,"reason":"missing or invalid ts"}"""))
+        assertFalse(isIngestResponseAccepted(200, """{"accepted":false,"reason":"consent required for a device without an account"}"""))
+    }
+
+    @Test
+    fun notAccepted_on401Unauthorized() {
+        assertFalse(isIngestResponseAccepted(401, """{"accepted":false,"reason":"unauthorized"}"""))
+    }
+
+    @Test
+    fun notAccepted_onMalformedOrEmptyBody() {
+        assertFalse(isIngestResponseAccepted(200, ""))
+        assertFalse(isIngestResponseAccepted(200, "not json"))
+        assertFalse(isIngestResponseAccepted(200, "{}"))
+    }
+
+    @Test
+    fun notAccepted_on5xxEvenWithAcceptedTrueBody() {
+        // Оборонительная проверка: код состояния — обязательное условие, тело само по себе не решает.
+        assertFalse(isIngestResponseAccepted(500, """{"accepted":true}"""))
     }
 }

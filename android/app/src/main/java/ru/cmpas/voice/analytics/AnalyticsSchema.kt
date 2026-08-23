@@ -1,5 +1,6 @@
 package ru.cmpas.voice.analytics
 
+import java.time.Instant
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -19,25 +20,54 @@ private val EVENT_SCHEMA: Map<String, Set<String>> = mapOf(
     "practice_started" to setOf("practice_id", "group", "is_sleep"),
     "practice_finished" to setOf("practice_id", "group", "is_sleep", "completion_pct"),
     "crossed_to_product" to setOf("target_product"),
+    // Контракт контура v2 (поток E): раньше "consent_updated" в
+    // analytics/schema/events.yaml был объявлен под product: practice
+    // единолично — приёмник (validateEvent) отклонял его от МОМЕНТОВ как
+    // «событие чужого продукта», хотя именно им МОМЕНТЫ обязаны ставить
+    // AnalyticsDeviceConsent для самих себя (writeDeviceOnlyEvent). Замкнутый
+    // круг: без согласия отвергалось всё, а согласие поставить было нечем.
+    // Параллельная задача на стороне ПРАКТИКИ делает "consent_updated" (и
+    // "identity_linked") разрешёнными всем трём продуктам в реестре —
+    // отсюда обязана начаться отправка, реестр клиента (этот файл) должен
+    // знать событие независимо от того, докатилась ли уже правка приёмника
+    // (см. AnalyticsRecorder.recordConsentUpdated/buildConsentRevokedEvent).
+    "consent_updated" to setOf("granted"),
 )
 
 /**
  * Собирает событие в общем конверте (`12_ANALYTICS.md §3`). `accountId` нет —
  * у МОМЕНТОВ в MVP нет аккаунтов (`docs/PRIVACY-DPO.md §1`). Возвращает null
  * для необъявленного имени события — вызывающий код обязан не отправлять его.
+ *
+ * `ts` — ISO-8601 UTC строка, не epoch-millis число: приёмник ПРАКТИКИ
+ * (`src/lib/analytics/schema.ts`, `validateEvent`) требует
+ * `typeof raw.ts === 'string'` и парсит `Date.parse(raw.ts)`; число здесь
+ * раньше отклонялось валидатором целиком («missing or invalid ts») —
+ * найдено и исправлено сверкой конверта с реестром ПРАКТИКИ (поток D).
+ *
+ * `eventId` — ключ идемпотентности приёмника (`event_id`, необязателен для
+ * валидатора, но без него POST /ingest не может отличить повтор доставки от
+ * нового события — `processIngestEvent` дедуплицирует по нему только когда
+ * он есть). UUID, не ULID: ULID обсуждался ради монотонной сортировки
+ * (`06_ANALYTICS.md §4.1`), но это отдельная библиотечная зависимость, не
+ * проверенная и не подключаемая в этой среде без сети до Maven; приёмнику
+ * достаточно строки, стабильной при повторной отправке одного и того же
+ * события, чему UUID уже удовлетворяет.
  */
 fun buildAnalyticsEvent(
     name: String,
     props: Map<String, JsonElement>,
     ts: Long,
     deviceId: String,
+    eventId: String,
 ): kotlinx.serialization.json.JsonObject? {
     val allowed = EVENT_SCHEMA[name] ?: return null
     return buildJsonObject {
         put("event", name)
-        put("ts", ts)
+        put("ts", Instant.ofEpochMilli(ts).toString())
         put("product", "moments")
         put("device_id", deviceId)
+        put("event_id", eventId)
         put("schema_version", 1)
         putJsonObject("props") {
             props.filterKeys { it in allowed }.forEach { (key, value) -> put(key, value) }

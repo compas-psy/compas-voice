@@ -150,6 +150,12 @@ fun KompasRoot(container: AppContainer) {
                 scope.launch {
                     container.store.setAnalyticsConsent(true)
                     container.store.markAnalyticsConsentAsked()
+                    // E-M1: consent_updated{granted:true} обязан оказаться в
+                    // очереди ПЕРВЫМ — до recordAppInstalled и любого другого
+                    // содержательного события. Приёмник (writeDeviceOnlyEvent)
+                    // ставит AnalyticsDeviceConsent именно по этому событию и
+                    // отвергает всё остальное от устройства без него.
+                    container.analytics.recordConsentUpdated(true)
                     val installedAt = container.store.ensureInstalledAt(System.currentTimeMillis())
                     container.analytics.recordAppInstalled(installedAt)
                 }
