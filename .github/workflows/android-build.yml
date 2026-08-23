@@ -58,9 +58,21 @@ jobs:
       - name: Build Debug APK
         working-directory: android
         shell: bash
+        env:
+          # Секрет приёмника (О-260817-17). Пустая строка для сборок, не
+          # прошедших гейт выше (PR/ветки без секрета в CI) — приложение
+          # тогда просто не пытается слать, см. AppContainer.kt. Значение
+          # ЗАШИВАЕТСЯ В APK как есть — оно достаётся из любого скачанного
+          # файла (см. честный комментарий в app/build.gradle.kts рядом с
+          # buildConfigField). Это фильтр случайного постороннего трафика на
+          # приёмник, а не защита от того, кто целенаправленно распакует APK.
+          ANALYTICS_INGEST_SECRET: ${{ secrets.ANALYTICS_INGEST_SECRET }}
         run: |
           set -o pipefail
-          /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee ../android-build.log
+          /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace \
+            -PanalyticsIngestUrl=https://cmpas.ru/api/ingest \
+            -PanalyticsIngestSecret="$ANALYTICS_INGEST_SECRET" \
+            2>&1 | tee ../android-build.log
 
       # Лог грузим ТОЛЬКО при падении сборки (тогда он и нужен) и best-effort:
       # переполнение квоты артефактов не должно блокировать выпуск релиза.
