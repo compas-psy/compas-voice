@@ -19,7 +19,7 @@ class AnalyticsSchemaTest {
 
     @Test
     fun unknownEventName_isRejected() {
-        assertNull(buildAnalyticsEvent("something_else", emptyMap(), ts = 0L, deviceId = "dev"))
+        assertNull(buildAnalyticsEvent("something_else", emptyMap(), ts = 0L, deviceId = "dev", eventId = "eid"))
     }
 
     @Test
@@ -35,6 +35,7 @@ class AnalyticsSchemaTest {
                 ),
                 ts = 1_000L,
                 deviceId = "dev-1",
+                eventId = "eid-1",
             )
         )
         val props = event["props"]!!.jsonObject
@@ -44,7 +45,7 @@ class AnalyticsSchemaTest {
 
     @Test
     fun appInstalled_hasNoProps() {
-        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev"))
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev", "eid"))
         assertTrue(event["props"]!!.jsonObject.isEmpty())
     }
 
@@ -61,6 +62,7 @@ class AnalyticsSchemaTest {
                 ),
                 ts = 2_000L,
                 deviceId = "dev-1",
+                eventId = "eid-2",
             )
         )
         val props = event["props"]!!.jsonObject
@@ -75,6 +77,7 @@ class AnalyticsSchemaTest {
                 mapOf("target_product" to JsonPrimitive("practice")),
                 ts = 3_000L,
                 deviceId = "dev-1",
+                eventId = "eid-3",
             )
         )
         assertEquals("practice", event["props"]!!.jsonObject["target_product"]!!.jsonPrimitive.content)
@@ -82,7 +85,7 @@ class AnalyticsSchemaTest {
 
     @Test
     fun envelope_hasNoAccountId_momentyHasNoAccounts() {
-        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev"))
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev", "eid"))
         assertFalse(event.toString().contains("account_id"))
     }
 
@@ -93,7 +96,34 @@ class AnalyticsSchemaTest {
      */
     @Test
     fun envelope_productMatchesReceiverRegistry() {
-        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev"))
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev", "eid"))
         assertEquals("moments", event["product"]!!.jsonPrimitive.content)
+    }
+
+    /**
+     * Поток D, дефект найден сверкой с `src/lib/analytics/schema.ts`
+     * (`validateEvent`): тот требует `typeof raw.ts === 'string'` и
+     * `Date.parse(raw.ts)` — число (epoch-millis) отклонялось валидатором
+     * целиком, ещё до проверки имени события. `Instant.ofEpochMilli(...).
+     * toString()` — тот же формат, что `Date.toISOString()` в JS без
+     * дробных миллисекунд, когда их нет.
+     */
+    @Test
+    fun envelope_tsIsIsoUtcString_notEpochMillisNumber() {
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), ts = 1_000L, deviceId = "dev", eventId = "eid"))
+        val tsField = event["ts"]!!.jsonPrimitive
+        assertTrue("ts должен сериализоваться как JSON-строка, а не число", tsField.isString)
+        assertEquals("1970-01-01T00:00:01Z", tsField.content)
+    }
+
+    /**
+     * Поток D: `event_id` раньше не попадал в конверт вовсе — приёмник не
+     * может дедуплицировать повтор доставки после таймаута без него
+     * (`processIngestEvent`, ключ идемпотентности).
+     */
+    @Test
+    fun envelope_includesEventId() {
+        val event = requireNotNull(buildAnalyticsEvent("app_installed", emptyMap(), 0L, "dev", eventId = "unique-id-1"))
+        assertEquals("unique-id-1", event["event_id"]!!.jsonPrimitive.content)
     }
 }

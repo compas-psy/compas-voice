@@ -60,4 +60,49 @@ class AnalyticsRecorderTest {
 
         assertTrue(enqueued[0].contains("\"completion_pct\":100"))
     }
+
+    /**
+     * Поток D: ключ идемпотентности приёмника (`event_id`) должен реально
+     * доехать от [AnalyticsRecorder] до конверта — не только существовать в
+     * [buildAnalyticsEvent] как параметр, который никто не передаёт.
+     */
+    @Test
+    fun eventId_isThreadedIntoEnqueuedEnvelope() = runBlocking {
+        val enqueued = mutableListOf<String>()
+        val recorder = AnalyticsRecorder(
+            isConsentGranted = { true },
+            enqueue = { enqueued.add(it) },
+            deviceId = { "dev" },
+            eventId = { "fixed-event-id-42" },
+        )
+
+        recorder.recordAppInstalled(0L)
+
+        assertTrue(enqueued[0].contains("\"event_id\":\"fixed-event-id-42\""))
+    }
+
+    /**
+     * Без явно переданного [AnalyticsRecorder.eventId] (продовое поведение,
+     * `AppContainer` его не переопределяет) каждая запись получает новый
+     * идентификатор — иначе повторные вызовы одного и того же события
+     * дедуплицировались бы приёмником как один и тот же `event_id`.
+     */
+    @Test
+    fun eventId_defaultsToDistinctValuePerRecord() = runBlocking {
+        val enqueued = mutableListOf<String>()
+        val recorder = AnalyticsRecorder(
+            isConsentGranted = { true },
+            enqueue = { enqueued.add(it) },
+            deviceId = { "dev" },
+        )
+
+        recorder.recordAppInstalled(0L)
+        recorder.recordAppInstalled(0L)
+
+        val ids = enqueued.map { json ->
+            Regex("\"event_id\":\"([^\"]+)\"").find(json)!!.groupValues[1]
+        }
+        assertEquals(2, ids.size)
+        assertTrue("два разных вызова получили один и тот же event_id: $ids", ids[0] != ids[1])
+    }
 }

@@ -15,12 +15,15 @@ import kotlinx.serialization.json.JsonElement
  * У МОМЕНТОВ по-прежнему нет собственного бэкенда (`docs/PRIVACY-DPO.md §1`).
  * [enqueue] складывает событие в локальную очередь (`LocalStore.enqueueAnalyticsEvent`);
  * довозит её до существующего `POST /ingest` ПРАКТИКИ [AnalyticsTransport]
- * (О-260817-14), за отдельным флагом, выключенным по умолчанию.
+ * (О-260817-14), за отдельным флагом [ru.cmpas.voice.data.FeatureFlags.analyticsTransportEnabled]
+ * — согласие проверяется здесь независимо от того, включён ли он.
  */
 class AnalyticsRecorder(
     private val isConsentGranted: suspend () -> Boolean,
     private val enqueue: suspend (String) -> Unit,
     private val deviceId: suspend () -> String,
+    /** Ключ идемпотентности приёмника (`event_id`) — свежий на каждую запись, см. AnalyticsSchema.buildAnalyticsEvent. */
+    private val eventId: () -> String = { java.util.UUID.randomUUID().toString() },
     private val now: () -> Long = System::currentTimeMillis,
 ) {
 
@@ -53,7 +56,7 @@ class AnalyticsRecorder(
 
     private suspend fun record(name: String, props: Map<String, JsonElement>, ts: Long = now()) {
         if (!isConsentGranted()) return
-        val event = buildAnalyticsEvent(name, props, ts, deviceId()) ?: return
+        val event = buildAnalyticsEvent(name, props, ts, deviceId(), eventId()) ?: return
         enqueue(event.toString())
     }
 }
