@@ -4,6 +4,7 @@ import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
@@ -29,27 +30,55 @@ import org.junit.Test
  * события) — этот снимок надо обновить вручную вместе с ним; расхождение
  * снимка с реальным `events.yaml` этот тест обнаружить не может, только
  * расхождение конверта МОМЕНТОВ со снимком.
+ *
+ * Поток E, E-M2: снимок ниже дополнен вручную по чтению
+ * `/tmp/audit/practice-e/analytics/schema/events.yaml` 23.08.2026 —
+ * "consent_updated" там объявлен с `required: [granted]` (не `optional`,
+ * в отличие от всех событий МОМЕНТОВ до этого) и по контракту контура v2
+ * обязан стать разрешённым сразу трём продуктам (`product` в его записи
+ * реестра ПРАКТИКИ на момент этого чтения — ещё "practice" единолично;
+ * параллельная задача, делающая его многопродуктовым, самим этим снимком
+ * не проверяется — см. отчёт потока E). Многопродуктовость события в
+ * реестре ПРИЁМНИКА — не то же самое, что `product` в конверте, который
+ * шлют САМИ МОМЕНТЫ: тот всегда "moments" (`buildAnalyticsEvent` жёстко
+ * ставит его для любого события клиента) — именно это
+ * [RegistryEventDef.product] здесь и проверяет, и это не меняется от
+ * того, кому ещё реестр разрешает то же имя события.
  */
 class AnalyticsRegistryComplianceTest {
 
     /** `events.yaml`: `products:` — список продуктов, которым вообще разрешено слать в `/ingest`. */
     private val registryProducts = setOf("practice", "zapiski", "moments")
 
-    private data class RegistryEventDef(val product: String, val optionalProps: Set<String>)
+    private data class RegistryEventDef(
+        val product: String,
+        val requiredProps: Set<String> = emptySet(),
+        val optionalProps: Set<String> = emptySet(),
+    ) {
+        val allowedProps: Set<String> get() = requiredProps + optionalProps
+    }
 
     /**
-     * `events.yaml`, события с `product: moments` — практика этого снимка,
-     * не "required" props: у всех четырёх событий МОМЕНТОВ `required: []`,
-     * все объявленные поля — `optional`.
+     * `events.yaml`, события, которые реально шлёт МОМЕНТЫ (product в
+     * конверте клиента всегда "moments" — см. комментарий класса выше).
+     * У первых четырёх `required: []`, все объявленные поля — `optional`.
+     * У "consent_updated" — наоборот, `required: [granted]`: отражено
+     * через `requiredProps`, а не `optionalProps`, и отдельно проверяется
+     * ниже (`assertCompliesWithReceiverRegistry` требует присутствия
+     * requiredProps, не только допускает их).
      */
     private val momentsRegistry: Map<String, RegistryEventDef> = mapOf(
-        "app_installed" to RegistryEventDef("moments", emptySet()),
-        "practice_started" to RegistryEventDef("moments", setOf("practice_id", "group", "is_sleep")),
-        "practice_finished" to RegistryEventDef(
-            "moments",
-            setOf("practice_id", "group", "is_sleep", "completion_pct"),
+        "app_installed" to RegistryEventDef(product = "moments"),
+        "practice_started" to RegistryEventDef(
+            product = "moments",
+            optionalProps = setOf("practice_id", "group", "is_sleep"),
         ),
-        "crossed_to_product" to RegistryEventDef("moments", setOf("target_product")),
+        "practice_finished" to RegistryEventDef(
+            product = "moments",
+            optionalProps = setOf("practice_id", "group", "is_sleep", "completion_pct"),
+        ),
+        "crossed_to_product" to RegistryEventDef(product = "moments", optionalProps = setOf("target_product")),
+        "consent_updated" to RegistryEventDef(product = "moments", requiredProps = setOf("granted")),
     )
 
     /** Прогоняет один вызов [AnalyticsRecorder] через реальный код и возвращает разобранный конверт. */
@@ -116,12 +145,18 @@ class AnalyticsRegistryComplianceTest {
             event.containsKey("account_id"),
         )
 
-        // props — множество ключей не шире того, что реестр объявил для этого события.
+        // props — множество ключей не шире того, что реестр объявил для этого события,
+        // и не уже обязательных (E-M2: у consent_updated required = [granted]).
         val propsKeys = event["props"]!!.jsonObject.keys
         assertTrue(
             "props содержит ключ(и), не объявленные в events.yaml для $expectedEventName: " +
-                "${propsKeys - def.optionalProps}",
-            def.optionalProps.containsAll(propsKeys),
+                "${propsKeys - def.allowedProps}",
+            def.allowedProps.containsAll(propsKeys),
+        )
+        assertTrue(
+            "props $expectedEventName не содержит обязательного(ых) поля(ей) реестра: " +
+                "${def.requiredProps - propsKeys}",
+            propsKeys.containsAll(def.requiredProps),
         )
     }
 
@@ -174,5 +209,42 @@ class AnalyticsRegistryComplianceTest {
     fun envelope_productIsExactlyKnownToRegistry() {
         val event = captureEnqueuedEnvelope { it.recordAppInstalled(0L) }
         assertTrue(event["product"]!!.jsonPrimitive.content in registryProducts)
+    }
+
+    /**
+     * E-M2: путь выдачи согласия (AnalyticsRecorder.recordConsentUpdated,
+     * через обычный record()) — конверт проходит тот же снимок реестра, и
+     * granted обязателен и присутствует.
+     */
+    @Test
+    fun consentUpdatedGranted_matchesReceiverRegistry() {
+        val event = captureEnqueuedEnvelope { it.recordConsentUpdated(true) }
+        assertCompliesWithReceiverRegistry(event, "consent_updated")
+        assertTrue(event["props"]!!.jsonObject.getValue("granted").jsonPrimitive.boolean)
+    }
+
+    /**
+     * E-M1/E-M2: путь отзыва (AnalyticsRecorder.buildConsentRevokedEvent,
+     * ЕДИНСТВЕННЫЙ обход проверки согласия в классе — см. его комментарий)
+     * строит конверт напрямую, не через record()/captureEnqueuedEnvelope.
+     * Конверт всё равно обязан пройти тот же снимок реестра: приёмник не
+     * различает, каким путём клиент его построил.
+     */
+    @Test
+    fun consentUpdatedRevoked_matchesReceiverRegistry() = runBlocking {
+        var enqueueCalls = 0
+        val recorder = AnalyticsRecorder(
+            isConsentGranted = { false }, // отзыв: согласие уже честно false
+            enqueue = { enqueueCalls++ },
+            deviceId = { "device-id-fixture" },
+            eventId = { "event-id-fixture" },
+        )
+
+        val eventJson = requireNotNull(recorder.buildConsentRevokedEvent())
+        val event = Json.parseToJsonElement(eventJson).jsonObject
+
+        assertCompliesWithReceiverRegistry(event, "consent_updated")
+        assertFalse(event["props"]!!.jsonObject.getValue("granted").jsonPrimitive.boolean)
+        assertEquals("buildConsentRevokedEvent не ставит событие в очередь сам", 0, enqueueCalls)
     }
 }
