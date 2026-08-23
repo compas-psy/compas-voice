@@ -249,7 +249,10 @@ jobs:
 
           mkdir -p "${RUNNER_TEMP}/signing"
           keystore="${RUNNER_TEMP}/signing/release.jks"
-          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > "${keystore}"
+          # tr -d — устойчивость к пробелам/переносам/CR, которые может занести
+          # вставка секрета из буфера (в т.ч. base64 без -w0 или CRLF из Windows);
+          # без очистки `base64 -d` спотыкается «invalid input».
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | tr -d '[:space:]' | base64 -d > "${keystore}"
           test -s "${keystore}" || { echo '::error::base64 keystore декодировался в пустой файл — проверьте секрет'; exit 1; }
 
           # Алиас существует и пароль подходит.
