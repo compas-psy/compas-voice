@@ -19,6 +19,10 @@ concurrency:
   group: android-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Продукт СИМПАС для этого репозитория. Ровно одно из: praktika, zapiski, momenty.
+  PRODUCT: momenty
+
 jobs:
   build:
     name: Build APK
@@ -48,6 +52,65 @@ jobs:
           unzip -q /tmp/gradle.zip -d /tmp
           /tmp/gradle-8.9/bin/gradle --version
 
+      # ── Имя артефакта и тег релиза (правило именования СИМПАС) ────────────
+      # Правило зафиксировано в CLAUDE.md. Здесь оно ЗАСТРАХОВАНО СБОРКОЙ:
+      #   файл  simpas-<продукт>-<версия>.apk
+      #   тег   <продукт>-v<версия>
+      # Без хеша коммита и без номера прогона: человек видит имя в загрузках,
+      # суффикс -a3f9c21 или -b27 ему ничего не сообщает. Релиз соответствует
+      # ВЕРСИИ, не прогону. versionName берётся из build.gradle.kts.
+      - name: Имя артефакта и тег (правило СИМПАС)
+        id: naming
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(grep -E 'versionName\s*=' android/app/build.gradle.kts | head -1 | grep -oP '"[^"]*"' | tr -d '"')"
+          [ -n "${version}" ] || { echo '::error::versionName не найден в build.gradle.kts'; exit 1; }
+
+          apk_name="simpas-${PRODUCT}-${version}.apk"
+          tag="${PRODUCT}-v${version}"
+
+          # Каноничные шаблоны имени и тега. Никакого run_number, никакого sha.
+          name_re="^simpas-(praktika|zapiski|momenty)-[0-9]+(\.[0-9]+)*\.apk$"
+          tag_re="^(praktika|zapiski|momenty)-v[0-9]+(\.[0-9]+)*$"
+
+          # check_name <строка> <регэксп> <человекочитаемое-что-проверяем>
+          # Печатает, ЧЕГО не хватает, и возвращает ненулевой код при несоответствии.
+          check_name() {
+            local value="$1" re="$2" what="$3"
+            if [[ "${value}" =~ ${re} ]]; then
+              return 0
+            fi
+            echo "::error::${what} '${value}' не соответствует правилу именования СИМПАС (${re})."
+            case "${value}" in
+              *b[0-9]*|*run*)     echo "  → похоже на номер прогона (bNN) в имени — уберите, релиз привязан к версии, а не к сборке." ;;
+            esac
+            if [[ "${value}" =~ [0-9a-f]{7,40} ]] && [[ ! "${value}" =~ ^simpas-|^(praktika|zapiski|momenty)-v ]]; then
+              echo "  → похоже на хеш коммита в имени — уберите, человеку он ничего не сообщает."
+            fi
+            case "${value}" in
+              kompas*|compas*|cmpas*) echo "  → продукт назван как kompas/compas/cmpas; в артефактах СИМПАС используется приставка simpas и код продукта praktika|zapiski|momenty." ;;
+            esac
+            return 1
+          }
+
+          # ТЕСТ СНАЧАЛА ДОЛЖЕН ПАДАТЬ: заведомо неверное имя обязано быть пойманным.
+          # Прежнее имя kompas-voice-<ver>-<sha>.apk — ровно то, что правило запрещает.
+          echo '── самопроверка сторожа на заведомо неверном имени ──'
+          if check_name "kompas-voice-${version}-b27.apk" "${name_re}" "самопроверка" 2>/dev/null; then
+            echo "::error::Сторож именования пропустил заведомо неверное имя kompas-voice-${version}-b27.apk — проверка сломана."
+            exit 1
+          fi
+          echo "  OK: неверное имя поймано."
+
+          # Настоящие имя и тег обязаны пройти.
+          check_name "${apk_name}" "${name_re}" "имя APK"
+          check_name "${tag}" "${tag_re}" "тег релиза"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "apk_name=${apk_name}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}"          >> "$GITHUB_OUTPUT"
+          echo "Артефакт: ${apk_name}   Тег: ${tag}   (постоянная ссылка: https://cmpas.ru/updates/latest/${PRODUCT}.apk)"
+
       - name: Unit tests
         working-directory: android
         shell: bash
@@ -55,22 +118,10 @@ jobs:
           set -o pipefail
           /tmp/gradle-8.9/bin/gradle testDebugUnitTest --no-daemon --stacktrace 2>&1 | tee ../android-tests.log
 
-      # Гейт только для сборки, результат которой реально уходит к людям
-      # (main → см. `if` на шаге Create Release ниже, то же условие). Ветки
-      # и PR собираются и без секрета — контрибьютору он не нужен, чтобы
-      # видеть, что код компилируется и тесты зелёные. Локальную сборку
-      # разработчика (`./gradlew assembleDebug` на своей машине) этот
-      # workflow вообще не запускает — её эта проверка не касается никак,
-      # это отдельный процесс на отдельной машине без доступа к секретам CI.
-      #
-      # Зачем так строго: без ANALYTICS_INGEST_SECRET_MOMENTS приёмник
-      # аналитики (verifyIngestSecret) — fail-closed, отвечает 401 на КАЖДОЕ
-      # событие МОМЕНТОВ. Собранное приложение при этом не падает и не
-      # жалуется — транспорт просто молча логирует и не пытается слать (см.
-      # `AppContainer.kt`, `analyticsTransportConfigured`). Итог без этой
-      # проверки: APK уходит к людям немым, а обнаруживается это не сейчас, а
-      # через месяц по пустой аналитической панели. Упасть здесь, за 10 секунд
-      # и с понятным сообщением, дешевле.
+      # Гейт секрета аналитики — только для сборки, которая уходит к людям (main).
+      # Без ANALYTICS_INGEST_SECRET_MOMENTS приёмник (verifyIngestSecret) отвечает
+      # 401 на каждое событие МОМЕНТОВ — приложение уедет немым, обнаружится это
+      # через месяц по пустой панели. Упасть здесь дешевле.
       - name: Проверка секрета аналитики перед релизом
         if: github.ref == 'refs/heads/main'
         env:
@@ -79,55 +130,230 @@ jobs:
         run: |
           if [ -z "$ANALYTICS_INGEST_SECRET_MOMENTS" ]; then
             echo "::error::ANALYTICS_INGEST_SECRET_MOMENTS не задан — релизная сборка МОМЕНТОВ остановлена."
+            echo "Заведите секрет ANALYTICS_INGEST_SECRET_MOMENTS (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      # release-сборка НЕПОДПИСАННАЯ: minify + shrink работают здесь, до подписи,
+      # поэтому сюрпризы proguard видны и на PR (без секретов). Подпись — ниже,
+      # внешним apksigner, только на main.
+      - name: Build unsigned release APK
+        working-directory: android
+        shell: bash
+        env:
+          ANALYTICS_INGEST_SECRET_MOMENTS: ${{ secrets.ANALYTICS_INGEST_SECRET_MOMENTS }}
+        run: |
+          set -o pipefail
+          /tmp/gradle-8.9/bin/gradle assembleRelease --no-daemon --stacktrace \
+            -PanalyticsIngestUrl=https://cmpas.ru/api/ingest \
+            -PanalyticsIngestSecretMoments="${ANALYTICS_INGEST_SECRET_MOMENTS:-}" \
+            2>&1 | tee ../android-build.log
+
+      - name: Locate built release APK
+        id: builtapk
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find android/app/build/outputs/apk/release -name '*.apk' -type f | sort | head -1)"
+          [ -n "${apk}" ] || { echo '::error::release APK не найден после assembleRelease'; exit 1; }
+          echo "path=${apk}" >> "$GITHUB_OUTPUT"
+          echo "Собран: ${apk}"
+
+      # ── Сторож ГОТОВОГО пакета: debuggable + разрешения ──────────────────
+      # Проверяется распространяемый файл, а не шаблон манифеста: разрешение
+      # может приехать из зависимости, которую никто не звал.
+      - name: Guard — APK не debuggable
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -name 'aapt2' -type f | sort -V | tail -1)"
+          [ -n "${aapt}" ] || { echo '::error::aapt2 не найден'; exit 1; }
+          badging="$("${aapt}" dump badging '${{ steps.builtapk.outputs.path }}')"
+          if echo "${badging}" | grep -qi "application-debuggable"; then
+            echo "::error::Собранный APK помечен debuggable — такой пакет НЕЛЬЗЯ раздавать людям (к нему подключается отладчик и читается память с секретами; Google Play его не принимает)."
+            exit 1
+          fi
+          echo "OK: application-debuggable отсутствует."
+
+      - name: Guard — разрешения APK против android-permissions.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          aapt="$(find "${ANDROID_HOME}/build-tools" -maxdepth 2 -name 'aapt2' -type f | sort -V | tail -1)"
+          allow_file="android/app/android-permissions.txt"
+
+          # Разрешения из ГОТОВОГО APK.
+          "${aapt}" dump permissions '${{ steps.builtapk.outputs.path }}' > /tmp/perm_dump.txt
+          echo '── что напечатал aapt2 ──'; cat /tmp/perm_dump.txt
+          apk_perms="$(grep -oP "uses-permission: name='\\K[^']+" /tmp/perm_dump.txt | sort -u || true)"
+
+          # Разрешённые имена из файла + требование объяснения у каждого.
+          # Строка-разрешение — без ведущего пробела и не начинается с '#'.
+          allowed="$(grep -E '^[A-Za-z]' "${allow_file}" | awk '{print $1}' | sort -u || true)"
+
+          # Каждое объявленное разрешение обязано иметь объяснение (строку с '#'
+          # после него до следующего разрешения). Иначе — разрешение без причины.
+          missing_reason="$(awk '
+            /^[A-Za-z]/ { if (perm != "" && !explained) print perm; perm=$1; explained=0; next }
+            /^[[:space:]]*#/ { if (perm != "") explained=1 }
+            END { if (perm != "" && !explained) print perm }
+          ' "${allow_file}")"
+          if [ -n "${missing_reason}" ]; then
+            echo "::error::В android-permissions.txt есть разрешение без объяснения:"; echo "${missing_reason}"
+            exit 1
+          fi
+
+          # Незаявленное разрешение в APK — падение.
+          undeclared="$(comm -23 <(echo "${apk_perms}") <(echo "${allowed}") | grep -v '^$' || true)"
+          if [ -n "${undeclared}" ]; then
+            echo "::error::В APK есть разрешение(я), не заявленные в ${allow_file}:"
+            echo "${undeclared}"
+            echo "  → либо уберите его из зависимости/манифеста, либо внесите в список с объяснением, зачем оно."
+            exit 1
+          fi
+
+          # Заявлено, но в APK не попало — предупреждение (напр. maxSdkVersion).
+          absent="$(comm -13 <(echo "${apk_perms}") <(echo "${allowed}") | grep -v '^$' || true)"
+          [ -z "${absent}" ] || { echo "::warning::Заявлены, но в APK не видны (возможно maxSdkVersion): ${absent}"; }
+          echo "OK: разрешения APK = { ${apk_perms} } — все заявлены и объяснены."
+
+      # ── Подпись готового APK (main): keystore из секрета, свой отпечаток ──
+      - name: Восстановить keystore из секрета и сверить отпечаток
+        id: keystore
+        if: github.ref == 'refs/heads/main'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ] || [ -z "${ANDROID_KEYSTORE_PASSWORD}" ] \
+             || [ -z "${ANDROID_KEY_ALIAS}" ] || [ -z "${ANDROID_KEY_PASSWORD}" ]; then
+            echo "::error::Секреты подписи не заданы — релиз МОМЕНТОВ остановлен."
             cat <<'MSG'
 
           ЧТО НЕ ЗАДАНО
-          Секрет ANALYTICS_INGEST_SECRET_MOMENTS пуст. Эта сборка уходит в
-          GitHub Release реальным людям, а без секрета приёмник аналитики
-          отвечает 401 на каждое событие МОМЕНТОВ — приложение уедет молчащим,
-          и это обнаружится не сейчас, а через месяц по пустой панели.
-
-          ГДЕ ЗАВЕСТИ
-          Репозиторий compas-psy/compas-voice на GitHub → Settings →
-          Secrets and variables → Actions → New repository secret.
-          Имя секрета:  ANALYTICS_INGEST_SECRET_MOMENTS
-
-          ЧТО В НЕГО ПОЛОЖИТЬ
-          Это СОБСТВЕННЫЙ секрет МОМЕНТОВ, отдельный от секретов ПРАКТИКИ и
-          ЗАПИСОК. Значение — то, которое приёмник знает как ingest-секрет
-          продукта moments (заводит владелец приёмника). Секреты обязаны
-          совпадать побайтово — иначе приёмник так же ответит 401, только
-          сборка при этом молча пройдёт (значение будет непустым, но неверным),
-          и эта проверка такую ошибку не ловит: сверьте значение вручную.
-
-          Локальную (debug) сборку на своей машине это не касается —
-          разработчику секрет для компиляции и тестов не нужен.
-
+          Ключ подписи вынесен из репозитория в секреты CI. Нужны ЧЕТЫРЕ секрета
+          (Settings → Secrets and variables → Actions):
+            ANDROID_KEYSTORE_BASE64    — keystore (.jks), закодированный base64 -w0
+            ANDROID_KEYSTORE_PASSWORD  — пароль хранилища
+            ANDROID_KEY_ALIAS          — алиас ключа
+            ANDROID_KEY_PASSWORD       — пароль ключа
+          Ключ — ТОТ ЖЕ, что был в репозитории (тот же отпечаток), иначе обновление
+          поверх установленных копий перестанет работать. Значения — в отчёте агента.
           MSG
             exit 1
           fi
 
-      - name: Build Debug APK
-        working-directory: android
-        shell: bash
-        env:
-          # Собственный секрет приёмника для МОМЕНТОВ (О-260817-17). Пустая
-          # строка для сборок, не прошедших гейт выше (PR/ветки без секрета в
-          # CI) — приложение тогда просто не пытается слать, см. AppContainer.kt.
-          # Значение ЗАШИВАЕТСЯ В APK как есть — оно достаётся из любого
-          # скачанного файла (см. честный комментарий в app/build.gradle.kts
-          # рядом с buildConfigField); именно поэтому секрет свой у МОМЕНТОВ —
-          # его утечка ограничивает ущерб отправкой только событий moments.
-          ANALYTICS_INGEST_SECRET_MOMENTS: ${{ secrets.ANALYTICS_INGEST_SECRET_MOMENTS }}
-        run: |
-          set -o pipefail
-          /tmp/gradle-8.9/bin/gradle assembleDebug --no-daemon --stacktrace \
-            -PanalyticsIngestUrl=https://cmpas.ru/api/ingest \
-            -PanalyticsIngestSecretMoments="$ANALYTICS_INGEST_SECRET_MOMENTS" \
-            2>&1 | tee ../android-build.log
+          mkdir -p "${RUNNER_TEMP}/signing"
+          keystore="${RUNNER_TEMP}/signing/release.jks"
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 -d > "${keystore}"
+          test -s "${keystore}" || { echo '::error::base64 keystore декодировался в пустой файл — проверьте секрет'; exit 1; }
 
-      # Лог грузим ТОЛЬКО при падении сборки (тогда он и нужен) и best-effort:
-      # переполнение квоты артефактов не должно блокировать выпуск релиза.
+          # Алиас существует и пароль подходит.
+          keytool -list -keystore "${keystore}" \
+            -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" >/dev/null
+
+          # Отпечаток ИЗ keystore, до подписи, и сверка с закоммиченным EXPECTED_SIGNER.txt.
+          expected="$(LANG=C keytool -list -v -keystore "${keystore}" \
+            -storepass "${ANDROID_KEYSTORE_PASSWORD}" -alias "${ANDROID_KEY_ALIAS}" \
+            | awk -F'SHA256: ' '/SHA256:/ { gsub(":", "", $2); print tolower($2); exit }')"
+          repo_fp="$(tr -d '[:space:]' < android/app/EXPECTED_SIGNER.txt)"
+          if [ "${expected}" != "${repo_fp}" ]; then
+            echo "::error::Отпечаток ключа из секрета разошёлся с android/app/EXPECTED_SIGNER.txt"
+            echo "  keystore secret: ${expected}"
+            echo "  EXPECTED_SIGNER: ${repo_fp}"
+            echo "  → это ДРУГОЙ ключ. Если он сменён сознательно — обновите EXPECTED_SIGNER.txt (и знайте: обновление поверх установленных копий сломается)."
+            exit 1
+          fi
+          echo "keystore=${keystore}" >> "$GITHUB_OUTPUT"
+          echo "expected_signer=${expected}" >> "$GITHUB_OUTPUT"
+          echo "Отпечаток совпал с EXPECTED_SIGNER.txt: ${expected}"
+
+      - name: Подписать APK (zipalign + apksigner)
+        id: sign
+        if: github.ref == 'refs/heads/main'
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools="$(find "${ANDROID_HOME}/build-tools" -maxdepth 1 -type d | sort -V | tail -1)"
+          unsigned='${{ steps.builtapk.outputs.path }}'
+          "${tools}/zipalign" -p -f 4 "${unsigned}" "${RUNNER_TEMP}/aligned.apk"
+          "${tools}/apksigner" sign \
+            --ks "${{ steps.keystore.outputs.keystore }}" \
+            --ks-pass "pass:${ANDROID_KEYSTORE_PASSWORD}" \
+            --ks-key-alias "${ANDROID_KEY_ALIAS}" \
+            --key-pass "pass:${ANDROID_KEY_PASSWORD}" \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out "${RUNNER_TEMP}/signed.apk" \
+            "${RUNNER_TEMP}/aligned.apk"
+          echo "apksigner=${tools}/apksigner" >> "$GITHUB_OUTPUT"
+          echo "signed=${RUNNER_TEMP}/signed.apk" >> "$GITHUB_OUTPUT"
+
+      - name: Проверить подпись готового APK
+        id: verify
+        if: github.ref == 'refs/heads/main'
+        env:
+          EXPECTED_SIGNER_SHA256: ${{ steps.keystore.outputs.expected_signer }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apksigner='${{ steps.sign.outputs.apksigner }}'
+          apk='${{ steps.sign.outputs.signed }}'
+          "${apksigner}" verify --verbose --print-certs "${apk}" > "${RUNNER_TEMP}/apksigner.txt" 2>&1
+          cat "${RUNNER_TEMP}/apksigner.txt"
+
+          # Отпечаток подписи готового файла обязан совпасть с ожидаемым.
+          got="$(grep -ioP 'SHA-256 digest:\s*\K[0-9a-f]+' "${RUNNER_TEMP}/apksigner.txt" | head -1 || true)"
+          if [ -z "${got}" ]; then
+            got="$(grep -ioP 'certificate SHA-?256 digest:\s*\K[0-9a-f]+' "${RUNNER_TEMP}/apksigner.txt" | head -1 || true)"
+          fi
+          if [ "${got}" != "${EXPECTED_SIGNER_SHA256}" ]; then
+            echo "::error::Отпечаток подписи готового APK не совпал с ожидаемым."
+            echo "  apk:      ${got}"
+            echo "  expected: ${EXPECTED_SIGNER_SHA256}"
+            exit 1
+          fi
+
+          # Пакет с CN=Android Debug — первое, на что реагирует Play Защита.
+          if grep -qi 'CN=Android Debug' "${RUNNER_TEMP}/apksigner.txt"; then
+            echo "::error::APK подписан отладочным ключом (CN=Android Debug) — раздавать нельзя."
+            exit 1
+          fi
+          echo "OK: подпись готового APK совпала с EXPECTED_SIGNER, CN не отладочный."
+
+      # ── Публикация: имя по правилу СИМПАС, релиз на ВЕРСИЮ (обновляем на месте) ──
+      - name: Публикация Release (по версии, обновление на месте)
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cp '${{ steps.sign.outputs.signed }}' "artifacts/${{ steps.naming.outputs.apk_name }}"
+
+          tag='${{ steps.naming.outputs.tag }}'
+          title="МОМЕНТЫ v${{ steps.naming.outputs.version }} (Android)"
+          notes=$'## МОМЕНТЫ — голосовые практики (Android)\nРелизная сборка (release, minify, подписана рабочим ключом).\nСкачайте APK ниже и установите на телефон.'
+
+          if gh release view "${tag}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Релиз ${tag} существует — обновляю файл и заметки на месте (та же версия)."
+            gh release upload "${tag}" "artifacts/${{ steps.naming.outputs.apk_name }}" --repo "${GITHUB_REPOSITORY}" --clobber
+            gh release edit "${tag}" --repo "${GITHUB_REPOSITORY}" --title "${title}" --notes "${notes}" --prerelease
+          else
+            echo "Релиза ${tag} нет — создаю."
+            gh release create "${tag}" "artifacts/${{ steps.naming.outputs.apk_name }}" \
+              --repo "${GITHUB_REPOSITORY}" --title "${title}" --notes "${notes}" --prerelease
+          fi
+          echo "Опубликовано: ${tag} / ${{ steps.naming.outputs.apk_name }}"
+
       - name: Upload build log (on failure)
         if: failure()
         continue-on-error: true
@@ -136,31 +362,3 @@ jobs:
           name: android-build-log
           path: android-build.log
           retention-days: 3
-
-      - name: Prepare APK
-        id: apk
-        run: |
-          APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -1)
-          VERSION=$(grep 'versionName' android/app/build.gradle.kts | head -1 | grep -oP '"[^"]*"' | tr -d '"')
-          SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          FILENAME="kompas-voice-${VERSION}-${SHA}.apk"
-          cp "$APK_PATH" "$FILENAME"
-          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      # APK доставляется через Release (хранилище релизов отдельное от квоты
-      # артефактов Actions). Отдельную выгрузку APK-артефакта убрали — она
-      # дублировала релиз и съедала квоту.
-      - name: Create Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.apk.outputs.version }}-b${{ github.run_number }}
-          name: "МОМЕНТЫ · голосовые практики ${{ steps.apk.outputs.version }} (#${{ github.run_number }})"
-          body: |
-            ## МОМЕНТЫ — голосовые практики (Android)
-            Debug-сборка. Скачайте APK ниже и установите на телефон.
-          files: kompas-voice-*.apk
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
