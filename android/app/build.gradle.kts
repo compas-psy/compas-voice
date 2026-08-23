@@ -20,11 +20,26 @@ android {
         // Адрес приёмника аналитики (О-260817-14) — из конфигурации сборки, не
         // из кода: переопределяется свойством Gradle `analyticsIngestUrl`
         // (например, -PanalyticsIngestUrl=... в CI), по умолчанию — прод-адрес
-        // существующего приёмника ПРАКТИКИ.
+        // существующего приёмника ПРАКТИКИ. Путь сверен с фактическим роутом
+        // (`compas-psy/cmpas.ru`, `src/app/api/ingest/route.ts` — Next.js App
+        // Router кладёт его на `/api/ingest`, а не на `/ingest`).
         buildConfigField(
             "String",
             "ANALYTICS_INGEST_URL",
             "\"${project.findProperty("analyticsIngestUrl") ?: "https://cmpas.ru/api/ingest"}\"",
+        )
+
+        // Общий секрет POST /ingest (О-260817-17, `verifyIngestSecret` в том же
+        // route.ts) — только из конфигурации сборки, никогда не строкой в коде:
+        // без значения по умолчанию нарочно. Передаётся как
+        // -PanalyticsIngestSecret=... в CI/release-сборке из секретов CI; в
+        // локальной сборке без этого свойства остаётся пустой строкой, и
+        // [ru.cmpas.voice.AppContainer] тогда явно не пытается слать (лог,
+        // не попытка с гарантированным 401 — приёмник fail-closed без секрета).
+        buildConfigField(
+            "String",
+            "ANALYTICS_INGEST_SECRET",
+            "\"${project.findProperty("analyticsIngestSecret") ?: ""}\"",
         )
     }
 

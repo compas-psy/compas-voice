@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.cmpas.voice.analytics.AnalyticsRecorder
 import ru.cmpas.voice.analytics.AnalyticsTransport
+import ru.cmpas.voice.analytics.isAnalyticsTransportConfigured
+import ru.cmpas.voice.analytics.isIngestResponseAccepted
 import ru.cmpas.voice.audio.BackgroundAudio
 import ru.cmpas.voice.audio.ExoBackgroundAudio
 import ru.cmpas.voice.audio.ExoVoiceEngine
@@ -31,6 +33,17 @@ class AppContainer(context: Context) {
     private val voice = ExoVoiceEngine(context.applicationContext)
     val player = PlayerController(appScope, background, voice)
 
+    /**
+     * Настроен ли транспорт конфигурацией сборки (адрес + секрет — оба нужны,
+     * [isAnalyticsTransportConfigured]). Проверяется один раз при создании
+     * контейнера, а не на каждой отправке: при отсутствии конфигурации
+     * транспорт должен молчать явно (один лог здесь), а не пытаться слать и
+     * гарантированно получать 401 (приёмник fail-closed без секрета) на
+     * каждое событие очереди.
+     */
+    private val analyticsTransportConfigured =
+        isAnalyticsTransportConfigured(BuildConfig.ANALYTICS_INGEST_URL, BuildConfig.ANALYTICS_INGEST_SECRET)
+
     /** Довозит очередь до приёмника ПРАКТИКИ (О-260817-14), см. AnalyticsTransport. */
     private val analyticsTransport = AnalyticsTransport(
         isConsentGranted = { store.analyticsConsent.first() },
@@ -44,13 +57,33 @@ class AppContainer(context: Context) {
         isConsentGranted = { store.analyticsConsent.first() },
         enqueue = {
             store.enqueueAnalyticsEvent(it)
-            if (FeatureFlags.analyticsTransportEnabled) analyticsTransport.flush()
+            if (FeatureFlags.analyticsTransportEnabled && analyticsTransportConfigured) analyticsTransport.flush()
         },
         deviceId = { store.analyticsDeviceId() },
     )
 
-    /** Отправляет одно событие в существующий приёмник ПРАКТИКИ; неудача не бросает исключение. */
+    init {
+        if (FeatureFlags.analyticsTransportEnabled && !analyticsTransportConfigured) {
+            android.util.Log.w(
+                "AnalyticsTransport",
+                "analyticsTransportEnabled=true, но ANALYTICS_INGEST_URL/ANALYTICS_INGEST_SECRET не " +
+                    "заданы сборкой (свойства Gradle analyticsIngestUrl/analyticsIngestSecret) — " +
+                    "события копятся в локальной очереди, но наружу не уходят.",
+            )
+        }
+    }
+
+    /**
+     * Отправляет одно событие в существующий приёмник ПРАКТИКИ; неудача не
+     * бросает исключение. Секрет — заголовком `Authorization` (О-260817-17,
+     * `verifyIngestSecret`), не только адрес: без заголовка приёмник отвечает
+     * 401 всегда, независимо от валидности события. Принятым считается не
+     * код состояния 2xx сам по себе, а тело ответа с `accepted: true`
+     * ([isIngestResponseAccepted]) — при одиночном событии приёмник отвечает
+     * 200 и на честный отказ тоже.
+     */
     private suspend fun postAnalyticsEvent(eventJson: String): Boolean = withContext(Dispatchers.IO) {
+        if (!analyticsTransportConfigured) return@withContext false
         try {
             val connection = URL(BuildConfig.ANALYTICS_INGEST_URL).openConnection() as HttpURLConnection
             connection.requestMethod = "POST"
@@ -58,10 +91,15 @@ class AppContainer(context: Context) {
             connection.connectTimeout = 10_000
             connection.readTimeout = 10_000
             connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.setRequestProperty("Authorization", "Bearer ${BuildConfig.ANALYTICS_INGEST_SECRET}")
             connection.outputStream.use { it.write(eventJson.toByteArray(Charsets.UTF_8)) }
-            val accepted = connection.responseCode in 200..299
+            val statusCode = connection.responseCode
+            val body = (if (statusCode in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()
+                ?.use { it.readText() }
+                ?: ""
             connection.disconnect()
-            accepted
+            isIngestResponseAccepted(statusCode, body)
         } catch (e: IOException) {
             false
         }
@@ -69,7 +107,7 @@ class AppContainer(context: Context) {
 
     /** Довезти накопленную очередь, если сеть/согласие уже позволяют (например, при старте приложения). */
     fun flushAnalyticsQueue() {
-        if (!FeatureFlags.analyticsTransportEnabled) return
+        if (!FeatureFlags.analyticsTransportEnabled || !analyticsTransportConfigured) return
         appScope.launch { analyticsTransport.flush() }
     }
 }
