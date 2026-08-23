@@ -188,6 +188,82 @@ class AnalyticsTransportTest {
 }
 
 /**
+ * E-M1: [AnalyticsTransport.flushPendingRevocation] — единственный способ,
+ * которым отзыв согласия обязан уйти, даже когда [AnalyticsTransport.flush]
+ * выше по этому же файлу честно отказывается слать что-либо
+ * ([AnalyticsTransportTest.withoutConsent_neverSendsQueuedEvents]).
+ * Отдельный класс тестов — не трогает peekQueue/removeSent из FakeQueue
+ * выше вовсе, только собственные параметры метода, отдельные от обычной
+ * очереди по конструкции (LocalStore хранит их в разных ключах DataStore).
+ */
+class AnalyticsTransportPendingRevocationTest {
+
+    @Test
+    fun sendsDespiteMissingConsent_andClearsSlotOnAcceptance() = runBlocking {
+        var sent: String? = null
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false }, // отзыв: согласие в этот момент честно false
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { sent = it; true },
+        )
+        var cleared = false
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { "consent-revoked-event-json" },
+            clearPendingRevocation = { cleared = true },
+        )
+
+        assertEquals("consent-revoked-event-json", sent)
+        assertTrue("карман обязан очиститься только после подтверждённого приёма", cleared)
+    }
+
+    @Test
+    fun noPendingRevocation_neverCallsSendOne() = runBlocking {
+        var sendCalls = 0
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false },
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { sendCalls++; true },
+        )
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { null },
+            clearPendingRevocation = { error("нечего очищать — clear не должен вызываться") },
+        )
+
+        assertEquals(0, sendCalls)
+    }
+
+    /**
+     * Отказ приёмника (например, тот же честный {accepted:false} на
+     * одиночное событие, что уже разобран isIngestResponseAccepted) не
+     * должен стирать «карман» — иначе отзыв теряется навсегда, ровно та
+     * тихая потеря, от которой поток D защитил обычную очередь
+     * (isIngestResponseAccepted). Следующий вызов (следующий запуск
+     * приложения) обязан увидеть тот же отзыв и попробовать снова.
+     */
+    @Test
+    fun sendFails_leavesRevocationPendingForRetry() = runBlocking {
+        var clearCalls = 0
+        val transport = AnalyticsTransport(
+            isConsentGranted = { false },
+            peekQueue = { error("отзыв не использует обычную очередь") },
+            removeSent = { error("отзыв не использует обычную очередь") },
+            sendOne = { false },
+        )
+
+        transport.flushPendingRevocation(
+            peekPendingRevocation = { "consent-revoked-event-json" },
+            clearPendingRevocation = { clearCalls++ },
+        )
+
+        assertEquals(0, clearCalls)
+    }
+}
+
+/**
  * [isAnalyticsTransportConfigured] и [isIngestResponseAccepted] — чистые
  * функции конфигурации/разбора ответа транспорта (поток D), вынесены сюда
  * же, чтобы `AppContainer` (Android, без юнит-тестов) оставался тонкой

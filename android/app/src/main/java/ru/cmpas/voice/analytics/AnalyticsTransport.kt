@@ -56,6 +56,9 @@ fun isIngestResponseAccepted(httpStatusCode: Int, responseBody: String): Boolean
  * До согласия [flush] не делает ничего — ни одного вызова [sendOne]. Отзыв
  * согласия стирает очередь немедленно на стороне [LocalStore.setAnalyticsConsent],
  * а не здесь: так отзыв необратим даже если [flush] в этот момент не запущен.
+ * Сам факт отзыва [flush] не касается вовсе — за него отвечает отдельный
+ * [flushPendingRevocation] (E-M1), у которого согласие-гейта нет намеренно:
+ * он вызывается ровно тогда, когда согласие уже честно false.
  *
  * Пачки и лимит приёмника (поток D, задача D3): [sendOne] — сигнатура на
  * ОДНО событие (`eventJson: String`, не список), приёмник же вызывается по
@@ -106,6 +109,44 @@ class AnalyticsTransport(
             backoffMs = INITIAL_BACKOFF_MS
             if (batch.size < BATCH_SIZE) return
         }
+    }
+
+    /**
+     * Доставляет ОТЛОЖЕННЫЙ ОТЗЫВ согласия (E-M1, контракт контура v2) —
+     * ЕДИНСТВЕННЫЙ путь в этом классе, который сознательно не проверяет
+     * [isConsentGranted]. Он вызывается ровно тогда, когда согласие уже
+     * честно false — [flush] выше в этот момент не отправит ничего (его
+     * гейт остаётся как был, О-260817-14, `withoutConsent_neverSendsQueuedEvents`
+     * это по-прежнему гарантирует), а без этого метода сам отзыв тоже
+     * никогда бы не ушёл — приёмник узнал бы об отзыве согласия, только
+     * если бы МОМЕНТЫ снова его выдали.
+     *
+     * Не трогает обычную очередь ([peekQueue]/[removeSent]) — источник
+     * события отдельный, однослотовый «карман» LocalStore
+     * (`LocalStore.peekPendingAnalyticsRevocation`/`clearPendingAnalyticsRevocation`),
+     * переданный сюда параметрами метода, а не конструктора: конструктор
+     * существующих тестов (`AnalyticsTransportTest`) менять незачем, эти
+     * лямбды не нужны [flush]. Дыры нет: пока согласие false, в этот
+     * «карман» ничего, кроме самого факта отзыва, попасть не может — его
+     * заполняет только `LocalStore.setAnalyticsConsent(false, ...)`
+     * (см. `pendingRevocationAfterConsentChange`), а выдача согласия
+     * (`granted = true`) его снова обнуляет.
+     *
+     * Не батч — тот же [sendOne], одно событие. Очищает «карман» только
+     * при подтверждённом приёме ([sendOne] вернул true); при неудаче
+     * оставляет как есть — следующий вызов (следующий запуск приложения
+     * или следующий [ru.cmpas.voice.AppContainer.flushAnalyticsQueue])
+     * попробует снова. Отдельного бэкоффа как у [flush] здесь нет
+     * намеренно: событие одно и маленькое, а не пачка — цена лишней
+     * попытки при недоступной сети ничтожна по сравнению с риском забыть
+     * повторить единственную запись, которую закон обязывает довезти.
+     */
+    suspend fun flushPendingRevocation(
+        peekPendingRevocation: suspend () -> String?,
+        clearPendingRevocation: suspend () -> Unit,
+    ) {
+        val event = peekPendingRevocation() ?: return
+        if (sendOne(event)) clearPendingRevocation()
     }
 
     companion object {
