@@ -148,11 +148,24 @@ fun ProfileScreen(container: AppContainer, nowMs: Long, onOpenPaywall: () -> Uni
                     checked = analyticsConsent,
                     onCheckedChange = { checked ->
                         scope.launch {
-                            container.store.setAnalyticsConsent(checked)
-                            container.store.markAnalyticsConsentAsked()
                             if (checked) {
+                                container.store.setAnalyticsConsent(true)
+                                container.store.markAnalyticsConsentAsked()
+                                // E-M1: consent_updated{granted:true} — первым в
+                                // очередь, до любого содержательного события (см.
+                                // тот же порядок и его причину в KompasRoot.onAllow).
+                                container.analytics.recordConsentUpdated(true)
                                 val installedAt = container.store.ensureInstalledAt(System.currentTimeMillis())
                                 container.analytics.recordAppInstalled(installedAt)
+                            } else {
+                                // E-M1: отзыв — не голый setAnalyticsConsent(false).
+                                // container.revokeAnalyticsConsent() строит
+                                // consent_updated{granted:false} ПОКА согласие ещё
+                                // true и доставляет его отдельно от обычной
+                                // очереди (которую отзыв как и раньше стирает) —
+                                // см. её комментарий в AppContainer.
+                                container.revokeAnalyticsConsent()
+                                container.store.markAnalyticsConsentAsked()
                             }
                         }
                     },
