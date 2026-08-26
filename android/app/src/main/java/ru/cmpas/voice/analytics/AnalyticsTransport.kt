@@ -39,6 +39,40 @@ fun pendingRevocationAfterConsentChange(granted: Boolean, newRevocationEvent: St
     if (granted) null else newRevocationEvent
 
 /**
+ * Что остаётся в очереди после постановки нового события при её пределе [cap].
+ *
+ * Раньше здесь было простое `(current + event).takeLast(cap)` — и это теряло
+ * ровно то событие, которое терять нельзя. Очередь FIFO, старейшее в ней —
+ * `consent_updated{granted:true}`; приёмник ставит согласие устройства ТОЛЬКО по
+ * нему (`writeDeviceOnlyEvent`) и без него отвергает любое событие устройства без
+ * аккаунта. Пока приёмник недоступен или отвечает 401, очередь растёт; на 501-м
+ * событии `takeLast` молча выбрасывал согласие — а следом [AnalyticsTransport.flush]
+ * упирался бы в «consent required» на новом первом событии и не двигался бы уже
+ * никогда. Заново согласие не появится: его пишет только переключение тумблера.
+ *
+ * Поэтому события согласия из очереди не вытесняются вовсе (их единицы), а лимит
+ * добирается самыми свежими из остальных. Порядок сохраняется: согласие впереди
+ * содержательных событий, как и было по FIFO.
+ */
+fun analyticsQueueAfterEnqueue(current: List<String>, event: String, cap: Int): List<String> {
+    val all = current + event
+    if (all.size <= cap) return all
+    val consent = all.filter(::isConsentEventJson)
+    val rest = all.filterNot(::isConsentEventJson)
+    val keep = (cap - consent.size).coerceAtLeast(0)
+    return consent + rest.takeLast(keep)
+}
+
+/**
+ * Событие согласия узнаём по конверту, который строит [buildAnalyticsEvent] —
+ * `{"event":"consent_updated",...}`. Подстрока, а не разбор JSON: очередь может
+ * быть длинной, а вызов идёт в транзакции DataStore; формат конверта задаётся
+ * здесь же, в этом модуле, и проверяется тестами.
+ */
+internal fun isConsentEventJson(eventJson: String): Boolean =
+    eventJson.contains("\"event\":\"consent_updated\"")
+
+/**
  * Транспорт настраивается конфигурацией сборки, а не кодом (поток D):
  * адрес и секрет приёмника нужны оба, иначе слать нечем/некуда. Пустая
  * строка — незаполненное свойство Gradle (`app/build.gradle.kts`), не

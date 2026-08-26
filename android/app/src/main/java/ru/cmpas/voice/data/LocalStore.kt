@@ -221,7 +221,12 @@ class LocalStore(context: Context) {
             val current = p[Keys.analyticsQueue]
                 ?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }
                 ?: emptyList()
-            val updated = (current + eventJson).takeLast(500)
+            // НЕ takeLast: при переполнении вытесняются самые свежие из содержательных,
+            // а событие согласия остаётся — без него приёмник отвергает все события
+            // устройства и очередь встаёт навсегда (см. analyticsQueueAfterEnqueue).
+            val updated = ru.cmpas.voice.analytics.analyticsQueueAfterEnqueue(
+                current, eventJson, cap = 500,
+            )
             p[Keys.analyticsQueue] = json.encodeToString(updated)
         }
     }

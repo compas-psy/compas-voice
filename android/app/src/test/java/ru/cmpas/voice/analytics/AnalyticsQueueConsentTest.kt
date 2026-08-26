@@ -67,3 +67,66 @@ class AnalyticsPendingRevocationTest {
         assertNull(result)
     }
 }
+
+/**
+ * Переполнение очереди (B-260823): `takeLast(cap)` выбрасывал САМОЕ СТАРОЕ
+ * событие — то есть `consent_updated`, которым приёмник ставит согласие
+ * устройства. Пока приёмник отвечает 401, очередь растёт, и на cap+1 согласие
+ * исчезало навсегда: дальше приёмник отвергает всё как «consent required»,
+ * flush() упирается в первое событие и очередь не двигается уже никогда.
+ */
+class AnalyticsQueueOverflowTest {
+
+    private fun consent(granted: Boolean = true) =
+        """{"event":"consent_updated","ts":"1970-01-01T00:00:00Z","product":"moments","props":{"granted":$granted}}"""
+
+    private fun practice(i: Int) =
+        """{"event":"practice_started","ts":"1970-01-01T00:00:0${i % 10}Z","product":"moments","props":{}}"""
+
+    @Test
+    fun belowCap_keepsEverythingInOrder() {
+        val q = listOf(consent(), practice(1))
+        val result = analyticsQueueAfterEnqueue(q, practice(2), cap = 10)
+        assertEquals(listOf(consent(), practice(1), practice(2)), result)
+    }
+
+    @Test
+    fun overflow_keepsConsentAndDropsOldestContent() {
+        val cap = 5
+        // очередь уже полна: согласие + 4 содержательных
+        val full = listOf(consent()) + (1..4).map { practice(it) }
+        val result = analyticsQueueAfterEnqueue(full, practice(9), cap)
+
+        assertEquals(cap, result.size)
+        assertTrue("согласие обязано пережить переполнение", result.any { isConsentEventJson(it) })
+        assertEquals("согласие обязано остаться первым", true, isConsentEventJson(result.first()))
+        assertTrue("новое событие должно попасть в очередь", result.contains(practice(9)))
+    }
+
+    /** Старое поведение (takeLast) на этом же входе теряло согласие — фиксируем разницу. */
+    @Test
+    fun overflow_oldTakeLastWouldHaveLostConsent_newDoesNot() {
+        val cap = 3
+        val full = listOf(consent(), practice(1), practice(2))
+        val oldBehaviour = (full + practice(3)).takeLast(cap)
+        assertTrue("контроль: takeLast действительно терял согласие", oldBehaviour.none { isConsentEventJson(it) })
+
+        val result = analyticsQueueAfterEnqueue(full, practice(3), cap)
+        assertTrue("новое поведение согласие сохраняет", result.any { isConsentEventJson(it) })
+        assertEquals(cap, result.size)
+    }
+
+    @Test
+    fun overflow_withManyConsentEvents_neverDropsThem() {
+        val cap = 2
+        val q = listOf(consent(true), consent(false))
+        val result = analyticsQueueAfterEnqueue(q, practice(1), cap)
+        assertEquals(2, result.count { isConsentEventJson(it) })
+    }
+
+    @Test
+    fun isConsentEventJson_recognisesOnlyConsentEnvelope() {
+        assertTrue(isConsentEventJson(consent()))
+        assertTrue(!isConsentEventJson(practice(1)))
+    }
+}
